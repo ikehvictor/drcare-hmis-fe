@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Dr. Care brand tokens — sampled from the Dr. Care logo (navy body, teal-blue face, cyan circuit lines). */
+:root {
+  --background: #f5f7fa;
+  --foreground: #0f1d2e;
+  --surface: #ffffff;
+  --muted: #5b6b7d;
+  --line: #e2e8ef;
+
+  --brand-navy: #10263d;
+  --brand-navy-2: #1a3551;
+  --brand-teal: #23708f;
+  --brand-teal-dark: #1b5a74;
+  --brand-teal-soft: #e7f2f6;
+  --brand-cyan: #70cfdd;
+
+  --success: #0f8a5f;
+  --success-soft: #e5f5ee;
+  --warning: #b26b00;
+  --warning-soft: #fdf3e1;
+  --danger: #c2372f;
+  --danger-soft: #fbeceb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-navy: var(--brand-navy);
+  --color-navy-2: var(--brand-navy-2);
+  --color-teal: var(--brand-teal);
+  --color-teal-dark: var(--brand-teal-dark);
+  --color-teal-soft: var(--brand-teal-soft);
+  --color-cyan: var(--brand-cyan);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-outfit);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
