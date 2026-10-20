@@ -88,7 +88,7 @@ export function Field({
 const control =
   "w-full rounded-lg border border-line bg-surface px-3 text-sm text-foreground placeholder:text-muted/70 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20";
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: React.ComponentProps<"input">) {
   return <input className={clsx(control, "h-10", className)} {...props} />;
 }
 
@@ -198,6 +198,33 @@ export function PageHeader({
         {description && <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** Pinned to the bottom of the page while a form has unsaved changes. */
+export function SaveBar({
+  children = "Unsaved changes",
+  onDiscard,
+  onSave,
+  saveLabel = "Save changes",
+}: {
+  children?: React.ReactNode;
+  onDiscard: () => void;
+  onSave: () => void;
+  saveLabel?: string;
+}) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur lg:left-64">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <p className="text-sm text-muted">{children}</p>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" onClick={onDiscard}>
+            Discard
+          </Button>
+          <Button onClick={onSave}>{saveLabel}</Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 /** Sections up to this stage are built; later ones show a placeholder. */
-export const CURRENT_STAGE = 2;
+export const CURRENT_STAGE = 3;
 
 export interface NavItem {
   label: string;

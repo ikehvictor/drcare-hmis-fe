@@ -14,6 +14,13 @@ async function openNav(page: Page) {
 
 const usersTable = (page: Page) => page.getByRole("table", { name: "Users" });
 
+// Permissions only count while their module is on (stage 3), so switch on Records and Cash Point first.
+async function switchOnModules(page: Page) {
+  await page.goto("/admin/modules");
+  await page.getByRole("switch", { name: "Cash Point on" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Switch on both" }).click();
+}
+
 test.describe("roles", () => {
   test("lists default roles; Super Admin is locked and read-only", async ({ page }) => {
     await openNav(page);
@@ -102,6 +109,7 @@ test.describe("users", () => {
   });
 
   test("invite a user with validation, roles and branch access", async ({ page }) => {
+    await switchOnModules(page);
     await page.goto("/admin/users");
     await page.getByRole("button", { name: "Invite user" }).click();
     const dialog = page.getByRole("dialog", { name: "Invite a staff member" });
@@ -141,6 +149,7 @@ test.describe("users", () => {
   });
 
   test("effective permissions combine every role", async ({ page }) => {
+    await switchOnModules(page);
     await page.goto("/admin/users/usr_musa"); // Records Officer + Cashier
     await expect(page.getByText("combined from 2 roles")).toBeVisible();
     await expect(page.getByText("Register new patients — allowed")).toBeAttached();

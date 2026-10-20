@@ -15,7 +15,7 @@ import { useStore } from "@/lib/store";
 
 export function UserDetail() {
   const { id } = useParams<{ id: string }>();
-  const { users, roles, branches, ready, currentUserId, setUserStatus, resendInvite, notify } = useStore();
+  const { users, roles, branches, ready, currentUserId, setUserStatus, resendInvite, notify, isModuleOn } = useStore();
   const [editing, setEditing] = useState(false);
   const [confirmSuspend, setConfirmSuspend] = useState(false);
   const user = users.find((u) => u.id === id);
@@ -33,7 +33,7 @@ export function UserDetail() {
   }
 
   const isSelf = user.id === currentUserId;
-  const granted = effectivePermissions(user, roles);
+  const granted = effectivePermissions(user, roles, isModuleOn);
   const userRoles = roles.filter((r) => user.roleIds.includes(r.id));
 
   return (
@@ -154,7 +154,10 @@ export function UserDetail() {
           <div className="mt-4 space-y-5">
             {PERMISSION_CATALOGUE.map((g) => (
               <section key={g.module} aria-label={g.module}>
-                <h3 className="text-xs font-semibold tracking-wider text-muted uppercase">{g.module}</h3>
+                <h3 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                  {g.module}
+                  {!isModuleOn(g.moduleId) && <Badge>Module off</Badge>}
+                </h3>
                 <ul className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                   {g.permissions.map((p) => {
                     const from = granted.get(p.key);

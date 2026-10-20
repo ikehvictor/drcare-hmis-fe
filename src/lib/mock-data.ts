@@ -1,12 +1,14 @@
+import { defaultSettings, MODULES } from "./modules";
+import type { NumberingConfig } from "./numbering";
 import { ALL_PERMISSION_KEYS } from "./permissions";
-import type { ActivityItem, Branch, Role, Tenant, User } from "./types";
+import type { ActivityItem, Branch, ModuleState, Role, Tenant, User } from "./types";
 
 export const seedTenant: Tenant = {
   name: "Lakeside Specialist Hospital",
   plan: "Growth",
   branchLimit: 3,
   userLimit: 40,
-  entitledModules: ["Medical Records", "Cash Point"],
+  entitledModules: ["core", "medical-records", "cash-point"],
 };
 
 export const seedBranches: Branch[] = [
@@ -172,3 +174,21 @@ export const seedUsers: User[] = [
     createdAt: "2026-10-18T12:00:00.000Z",
   },
 ];
+
+// A newly onboarded hospital: entitled modules start switched off with default options.
+export const seedModules: Record<string, ModuleState> = Object.fromEntries(
+  MODULES.filter((m) => seedTenant.entitledModules.includes(m.id)).map((m) => [
+    m.id,
+    { enabled: !!m.core, settings: defaultSettings(m) },
+  ]),
+);
+
+export const seedNumbering: NumberingConfig = {
+  template: "{PREFIX}/{SEQ:6}",
+  prefix: "LKS",
+  scope: "hospital",
+  reset: "never",
+  startAt: 1,
+  keepLegacyNumber: false,
+  configured: false,
+};

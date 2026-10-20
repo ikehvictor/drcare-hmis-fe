@@ -27,9 +27,9 @@ test("navigation reaches branches and shows later stages as coming soon", async 
   await expect(page.getByRole("heading", { name: "Branches & service points", level: 1 })).toBeVisible();
 
   await openNav(page);
-  await page.getByRole("link", { name: /Modules/ }).click();
-  await expect(page.getByRole("heading", { name: "Modules" })).toBeVisible();
-  await expect(page.getByText("planned for stage 3")).toBeVisible();
+  await page.getByRole("link", { name: /Registration forms/ }).click();
+  await expect(page.getByRole("heading", { name: "Registration forms" })).toBeVisible();
+  await expect(page.getByText("planned for stage 4")).toBeVisible();
 });
 
 test("search filters the branch list", async ({ page }) => {

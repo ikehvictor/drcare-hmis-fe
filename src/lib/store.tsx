@@ -1,18 +1,33 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ActivityItem, Branch, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
-import { CURRENT_USER_ID, seedActivity, seedBranches, seedRoles, seedTenant, seedUsers } from "./mock-data";
+import type { ActivityItem, Branch, ModuleState, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
+import {
+  CURRENT_USER_ID,
+  seedActivity,
+  seedBranches,
+  seedModules,
+  seedNumbering,
+  seedRoles,
+  seedTenant,
+  seedUsers,
+} from "./mock-data";
+import { moduleById, type SettingValue } from "./modules";
+import type { NumberingConfig } from "./numbering";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v2";
+const STORAGE_KEY = "drcare-admin-demo-v3";
 
 interface State {
   tenant: Tenant;
   branches: Branch[];
   roles: Role[];
   users: User[];
+  modules: Record<string, ModuleState>;
+  /** Modules the hospital has asked Dr. Care to add to its plan. */
+  moduleRequests: string[];
+  numbering: NumberingConfig;
   activity: ActivityItem[];
 }
 
@@ -35,6 +50,12 @@ interface Store extends State {
   updateUser: (id: string, input: UserInput) => void;
   setUserStatus: (id: string, status: UserStatus) => void;
   resendInvite: (id: string) => void;
+  /** Switches several modules at once, so a module and its dependencies change together. */
+  setModulesEnabled: (ids: string[], enabled: boolean) => void;
+  updateModuleSettings: (id: string, settings: Record<string, SettingValue>) => void;
+  requestModule: (id: string) => void;
+  isModuleOn: (id: string) => boolean;
+  saveNumbering: (config: Omit<NumberingConfig, "configured" | "updatedAt">) => void;
   currentUserId: string;
   /** False until saved demo data has been read from the browser. */
   ready: boolean;
@@ -50,6 +71,9 @@ const initialState = (): State => ({
   branches: seedBranches,
   roles: seedRoles,
   users: seedUsers,
+  modules: seedModules,
+  moduleRequests: [],
+  numbering: seedNumbering,
   activity: seedActivity,
 });
 
@@ -228,6 +252,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setModulesEnabled = useCallback((ids: string[], enabled: boolean) => {
+    setState((s) => {
+      // Only entitled, non-core modules can be switched.
+      const changed = ids.filter((id) => s.modules[id] && !moduleById(id)?.core && s.modules[id].enabled !== enabled);
+      if (!changed.length) return s;
+      const names = changed.map((id) => moduleById(id)?.name ?? id).join(" and ");
+      return {
+        ...s,
+        modules: { ...s.modules, ...Object.fromEntries(changed.map((id) => [id, { ...s.modules[id]!, enabled }])) },
+        activity: log(s, `switched ${enabled ? "on" : "off"} ${names}`),
+      };
+    });
+  }, []);
+
+  const updateModuleSettings = useCallback((id: string, settings: Record<string, SettingValue>) => {
+    setState((s) =>
+      s.modules[id]
+        ? {
+            ...s,
+            modules: { ...s.modules, [id]: { ...s.modules[id], settings } },
+            activity: log(s, `changed ${moduleById(id)?.name ?? id} options`),
+          }
+        : s,
+    );
+  }, []);
+
+  const requestModule = useCallback((id: string) => {
+    setState((s) =>
+      s.moduleRequests.includes(id)
+        ? s
+        : {
+            ...s,
+            moduleRequests: [...s.moduleRequests, id],
+            activity: log(s, `asked Dr. Care to add ${moduleById(id)?.name ?? id}`),
+          },
+    );
+  }, []);
+
+  const saveNumbering = useCallback((config: Omit<NumberingConfig, "configured" | "updatedAt">) => {
+    setState((s) => ({
+      ...s,
+      numbering: { ...config, configured: true, updatedAt: new Date().toISOString() },
+      activity: log(s, `set the patient number format to ${config.template}`),
+    }));
+  }, []);
+
   const resetDemo = useCallback(() => setState(initialState()), []);
 
   const value = useMemo<Store>(
@@ -246,6 +316,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateUser,
       setUserStatus,
       resendInvite,
+      setModulesEnabled,
+      updateModuleSettings,
+      requestModule,
+      isModuleOn: (id: string) => !!state.modules[id]?.enabled,
+      saveNumbering,
       currentUserId: CURRENT_USER_ID,
       ready: loaded,
       toast,
@@ -267,6 +342,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateUser,
       setUserStatus,
       resendInvite,
+      setModulesEnabled,
+      updateModuleSettings,
+      requestModule,
+      saveNumbering,
       toast,
       notify,
       resetDemo,

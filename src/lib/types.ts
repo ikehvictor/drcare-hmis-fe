@@ -41,6 +41,11 @@ export interface Branch {
   createdAt: string;
 }
 
+export interface ModuleState {
+  enabled: boolean;
+  settings: Record<string, boolean | number | string[]>;
+}
+
 export interface Tenant {
   name: string;
   plan: string;

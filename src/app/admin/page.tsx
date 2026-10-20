@@ -4,11 +4,14 @@ import clsx from "clsx";
 import { ArrowRight, Building2, CheckCircle2, Circle, DoorOpen, Puzzle, Users } from "lucide-react";
 import Link from "next/link";
 import { Badge, Card, PageHeader } from "@/components/ui";
+import { moduleById } from "@/lib/modules";
 import { useStore } from "@/lib/store";
 import { RelativeTime } from "@/components/relative-time";
 
 export default function OverviewPage() {
-  const { tenant, branches, users, roles, activity } = useStore();
+  const { tenant, branches, users, roles, activity, isModuleOn, numbering } = useStore();
+  const switchable = tenant.entitledModules.filter((id) => !moduleById(id)?.core);
+  const modulesOn = switchable.filter(isModuleOn);
   const seats = users.filter((u) => u.status !== "suspended").length;
   const staffRolesInUse = roles.some((r) => !r.locked && users.some((u) => u.roleIds.includes(r.id)));
   const activeBranches = branches.filter((b) => b.active);
@@ -30,9 +33,9 @@ export default function OverviewPage() {
     },
     { label: "Staff accounts", value: seats, sub: `of ${tenant.userLimit} on your plan`, icon: Users },
     {
-      label: "Modules available",
-      value: tenant.entitledModules.length,
-      sub: tenant.entitledModules.join(" · "),
+      label: "Modules on",
+      value: modulesOn.length,
+      sub: `of ${switchable.length} on your plan`,
       icon: Puzzle,
     },
   ];
@@ -46,8 +49,12 @@ export default function OverviewPage() {
     },
     { label: "Invite your staff", done: users.length > 1, href: "/admin/users" },
     { label: "Create roles and assign permissions", done: staffRolesInUse, href: "/admin/roles" },
-    { label: "Switch on Medical Records and Cash Point", done: false, href: "/admin/modules" },
-    { label: "Choose your patient number format", done: false, href: "/admin/numbering" },
+    {
+      label: "Switch on Medical Records and Cash Point",
+      done: isModuleOn("medical-records") && isModuleOn("cash-point"),
+      href: "/admin/modules",
+    },
+    { label: "Choose your patient number format", done: numbering.configured, href: "/admin/numbering" },
   ];
   const doneCount = steps.filter((s) => s.done).length;
 

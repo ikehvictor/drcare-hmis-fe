@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowLeft, Lock, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Card, Dialog, Field, Input } from "@/components/ui";
+import { Badge, Button, Card, Dialog, Field, Input, SaveBar } from "@/components/ui";
 import { initials, usersWithRole } from "@/lib/access";
 import { PERMISSION_CATALOGUE, type PermissionGroup } from "@/lib/permissions";
 import { useStore } from "@/lib/store";
@@ -68,7 +68,7 @@ function GroupCheckbox({
 }
 
 function RoleEditor({ role }: { role: Role }) {
-  const { roles, users, updateRole, deleteRole, notify } = useStore();
+  const { roles, users, updateRole, deleteRole, notify, isModuleOn } = useStore();
   const router = useRouter();
   const [name, setName] = useState(role.name);
   const [description, setDescription] = useState(role.description);
@@ -171,7 +171,20 @@ function RoleEditor({ role }: { role: Role }) {
                     >
                       {group.module}
                     </h2>
-                    <p className="text-xs text-muted">{group.description}</p>
+                    <p className="text-xs text-muted">
+                      {isModuleOn(group.moduleId) ? (
+                        group.description
+                      ) : (
+                        <>
+                          <span className="font-medium text-warning">Module off.</span> These permissions only take
+                          effect once{" "}
+                          <Link href="/admin/modules" className="underline">
+                            {group.module}
+                          </Link>{" "}
+                          is switched on.
+                        </>
+                      )}
+                    </p>
                   </div>
                   <GroupCheckbox
                     group={group}
@@ -262,19 +275,9 @@ function RoleEditor({ role }: { role: Role }) {
       </div>
 
       {dirty && !readOnly && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur lg:left-64">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <p className="text-sm text-muted">
-              Unsaved changes · <span className="tabular-nums">{selected.size}</span> permissions selected
-            </p>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={discard}>
-                Discard
-              </Button>
-              <Button onClick={save}>Save role</Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar onDiscard={discard} onSave={save} saveLabel="Save role">
+          Unsaved changes · <span className="tabular-nums">{selected.size}</span> permissions selected
+        </SaveBar>
       )}
 
       <Dialog

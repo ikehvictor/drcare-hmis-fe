@@ -10,6 +10,8 @@ export interface Permission {
 }
 
 export interface PermissionGroup {
+  /** Module id the permissions belong to; switching the module off removes them. */
+  moduleId: string;
   module: string;
   description: string;
   permissions: Permission[];
@@ -17,6 +19,7 @@ export interface PermissionGroup {
 
 export const PERMISSION_CATALOGUE: PermissionGroup[] = [
   {
+    moduleId: "core",
     module: "Administration",
     description: "Running the hospital's own setup.",
     permissions: [
@@ -46,6 +49,7 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
     ],
   },
   {
+    moduleId: "medical-records",
     module: "Medical Records",
     description: "Registering patients and keeping their records.",
     permissions: [
@@ -84,6 +88,7 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
     ],
   },
   {
+    moduleId: "cash-point",
     module: "Cash Point",
     description: "Billing patients and taking payments.",
     permissions: [
