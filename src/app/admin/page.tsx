@@ -9,7 +9,7 @@ import { useStore } from "@/lib/store";
 import { RelativeTime } from "@/components/relative-time";
 
 export default function OverviewPage() {
-  const { tenant, settings, branches, users, roles, activity, isModuleOn, numbering } = useStore();
+  const { tenant, settings, branches, users, roles, audit, isModuleOn, numbering } = useStore();
   const switchable = tenant.entitledModules.filter((id) => !moduleById(id)?.core);
   const modulesOn = switchable.filter(isModuleOn);
   const seats = users.filter((u) => u.status !== "suspended").length;
@@ -109,21 +109,30 @@ export default function OverviewPage() {
         </Card>
 
         <Card className="p-5 lg:col-span-2">
-          <h2 className="font-display text-lg font-semibold">Recent activity</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">Recent activity</h2>
+            <Link href="/admin/audit" className="text-sm font-medium text-teal hover:underline">
+              Audit log
+            </Link>
+          </div>
           <ul className="mt-3 space-y-4">
-            {activity.slice(0, 6).map((a) => (
-              <li key={a.id} className="flex gap-3">
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-cyan" aria-hidden />
-                <div className="min-w-0 text-sm">
-                  <p>
-                    <span className="font-medium">{a.actor}</span> {a.action}
-                  </p>
-                  <p className="text-xs text-muted">
-                    <RelativeTime iso={a.at} />
-                  </p>
-                </div>
-              </li>
-            ))}
+            {/* Changes only; sign-ins live in the full audit log. */}
+            {audit
+              .filter((a) => a.category !== "Sign-in")
+              .slice(0, 6)
+              .map((a) => (
+                <li key={a.id} className="flex gap-3">
+                  <span className="mt-1.5 size-2 shrink-0 rounded-full bg-cyan" aria-hidden />
+                  <div className="min-w-0 text-sm">
+                    <p>
+                      <span className="font-medium">{a.actor}</span> {a.action}
+                    </p>
+                    <p className="text-xs text-muted">
+                      <RelativeTime iso={a.at} />
+                    </p>
+                  </div>
+                </li>
+              ))}
           </ul>
         </Card>
       </div>

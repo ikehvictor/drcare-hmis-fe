@@ -1,10 +1,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ActivityItem, Branch, ModuleState, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
+import type { AuditEntry, Branch, ModuleState, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
+import { diff, listDiff, show } from "./audit";
+import { branchScopeLabel } from "./access";
+import { permissionByKey } from "./permissions";
 import {
   CURRENT_USER_ID,
-  seedActivity,
+  seedAudit,
   seedBranches,
   seedCategories,
   seedForms,
@@ -18,11 +21,11 @@ import {
 import { moduleById, type SettingValue } from "./modules";
 import type { NumberingConfig } from "./numbering";
 import { CORE_FIELDS, type PatientCategory, type RegistrationForm } from "./forms";
-import type { HospitalSettings } from "./settings";
+import { timeoutLabel, type HospitalSettings } from "./settings";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v4";
+const STORAGE_KEY = "drcare-admin-demo-v5";
 
 interface State {
   tenant: Tenant;
@@ -36,7 +39,8 @@ interface State {
   forms: RegistrationForm[];
   categories: PatientCategory[];
   settings: HospitalSettings;
-  activity: ActivityItem[];
+  /** Append-only audit log, newest first. */
+  audit: AuditEntry[];
 }
 
 export type BranchInput = Pick<Branch, "name" | "code" | "address" | "city" | "state" | "phone" | "isMain">;
@@ -72,8 +76,10 @@ interface Store extends State {
   addCategory: (input: CategoryInput) => void;
   updateCategory: (id: string, input: CategoryInput) => void;
   setCategoryActive: (id: string, active: boolean) => void;
-  /** Saves one part of the settings; `what` names it in the activity log. */
+  /** Saves one part of the settings; `what` names it in the audit log. */
   saveSettings: (patch: Partial<HospitalSettings>, what: string) => void;
+  /** Records that the audit log was exported; exporting is itself audited. */
+  exportedAudit: (count: number, filtered: boolean) => void;
   currentUserId: string;
   /** False until saved demo data has been read from the browser. */
   ready: boolean;
@@ -95,11 +101,108 @@ const initialState = (): State => ({
   forms: seedForms,
   categories: seedCategories,
   settings: seedSettings,
-  activity: seedActivity,
+  audit: seedAudit,
 });
 
 const newId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
-const ACTOR = "Ada Okafor";
+const ME = { actor: "Ada Okafor", actorRole: "Hospital Super Admin" };
+const VIA = "Web admin · this browser";
+const HOSPITAL_WIDE = "Hospital-wide";
+
+type LogInput = Omit<AuditEntry, "id" | "at" | "actor" | "actorRole" | "via" | "where"> & { where?: string };
+
+const BRANCH_LABELS = {
+  name: "Name",
+  code: "Code",
+  address: "Address",
+  city: "City / area",
+  state: "State",
+  phone: "Phone",
+  isMain: "Main branch",
+} as const;
+const POINT_LABELS = { name: "Name", type: "Type", location: "Location" } as const;
+const CATEGORY_LABELS = { name: "Name", code: "Code", formId: "Form" } as const;
+
+const permissionLabel = (key: string) => permissionByKey(key)?.label ?? key;
+const formName = (s: State, id: string) => s.forms.find((f) => f.id === id)?.name ?? id;
+const roleName = (s: State, id: string) => s.roles.find((r) => r.id === id)?.name ?? id;
+
+function userChanges(s: State, before: User | undefined, after: UserInput) {
+  return [
+    ...diff(before, after, { name: "Name", email: "Email", phone: "Phone", jobTitle: "Job title" }),
+    ...(before
+      ? listDiff(
+          "Roles",
+          before.roleIds.map((id) => roleName(s, id)),
+          after.roleIds.map((id) => roleName(s, id)),
+        )
+      : [{ field: "Roles", before: "—", after: after.roleIds.map((id) => roleName(s, id)).join(", ") }]),
+    ...diff(
+      before && { access: branchScopeLabel(before, s.branches) },
+      { access: branchScopeLabel({ branchScope: after.branchScope } as User, s.branches) },
+      { access: "Branch access" },
+    ),
+  ];
+}
+
+function settingsChanges(s: State, before: HospitalSettings, after: HospitalSettings) {
+  const minutes = (v: unknown) => (typeof v === "number" ? timeoutLabel(v) : show(v));
+  const branchName = (id: string) => s.branches.find((b) => b.id === id)?.name ?? id;
+  const approval = (r?: { required: boolean; approverRoleId: string }) =>
+    r?.required ? `Approved by ${roleName(s, r.approverRoleId)}` : "No approval";
+  const approvalKeys = [...new Set([...Object.keys(before.approvals), ...Object.keys(after.approvals)])];
+  const branchIds = [...new Set([...Object.keys(before.branchOverrides), ...Object.keys(after.branchOverrides)])];
+  return [
+    ...diff(
+      { ...before.profile, logo: before.profile.logo ? "Uploaded" : "None" },
+      {
+        ...after.profile,
+        logo: after.profile.logo ? (after.profile.logo === before.profile.logo ? "Uploaded" : "New logo") : "None",
+      },
+      {
+        displayName: "Hospital name",
+        shortName: "Short name",
+        email: "Contact email",
+        phone: "Contact phone",
+        address: "Address",
+        dateFormat: "Date format",
+        logo: "Logo",
+      },
+    ),
+    ...diff(
+      before.security,
+      after.security,
+      {
+        sessionTimeoutMinutes: "Sign out after",
+        pinSwitch: "Quick PIN switch",
+        twoFactor: "Two-step sign-in",
+        passwordMinLength: "Minimum password length",
+      },
+      { sessionTimeoutMinutes: minutes },
+    ),
+    ...approvalKeys
+      .map((k) => ({
+        field: `Approval · ${permissionLabel(k)}`,
+        before: approval(before.approvals[k]),
+        after: approval(after.approvals[k]),
+      }))
+      .filter((c) => c.before !== c.after),
+    ...branchIds.flatMap((id) =>
+      diff(
+        before.branchOverrides[id] ?? {},
+        after.branchOverrides[id] ?? {},
+        {
+          sessionTimeoutMinutes: `${branchName(id)} · Sign out after`,
+          pinSwitch: `${branchName(id)} · Quick PIN switch`,
+        },
+        {
+          sessionTimeoutMinutes: (v) => (v === undefined ? "Hospital setting" : minutes(v)),
+          pinSwitch: (v) => (v === undefined ? "Hospital setting" : show(v)),
+        },
+      ),
+    ),
+  ];
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>(initialState);
@@ -126,8 +229,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, loaded]);
 
-  const log = (s: State, action: string): ActivityItem[] =>
-    [{ id: newId("act"), actor: ACTOR, action, at: new Date().toISOString() }, ...s.activity].slice(0, 30);
+  // Only ever prepends: entries are never edited or removed.
+  const log = (s: State, e: LogInput): AuditEntry[] => [
+    { id: newId("aud"), at: new Date().toISOString(), ...ME, via: VIA, ...e, where: e.where ?? HOSPITAL_WIDE },
+    ...s.audit,
+  ];
 
   const addBranch = useCallback((input: BranchInput) => {
     const branch: Branch = {
@@ -141,19 +247,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({
       ...s,
       branches: [...s.branches.map((b) => (input.isMain ? { ...b, isMain: false } : b)), branch],
-      activity: log(s, `created branch ${branch.name} (${branch.code})`),
+      audit: log(s, {
+        action: `created branch ${branch.name} (${branch.code})`,
+        category: "Branches",
+        target: { type: "branch", id: branch.id, name: branch.name },
+        changes: diff(undefined, branch, BRANCH_LABELS),
+        where: branch.name,
+      }),
     }));
     return branch;
   }, []);
 
   const updateBranch = useCallback((id: string, input: BranchInput) => {
-    setState((s) => ({
-      ...s,
-      branches: s.branches.map((b) =>
-        b.id === id ? { ...b, ...input, code: input.code.toUpperCase() } : input.isMain ? { ...b, isMain: false } : b,
-      ),
-      activity: log(s, `updated branch ${input.name}`),
-    }));
+    setState((s) => {
+      const before = s.branches.find((b) => b.id === id);
+      const after = { ...input, code: input.code.toUpperCase() };
+      return {
+        ...s,
+        branches: s.branches.map((b) =>
+          b.id === id ? { ...b, ...after } : input.isMain ? { ...b, isMain: false } : b,
+        ),
+        audit: log(s, {
+          action: `updated branch ${input.name}`,
+          category: "Branches",
+          target: { type: "branch", id, name: input.name },
+          changes: diff(before, after, BRANCH_LABELS),
+          where: input.name,
+        }),
+      };
+    });
   }, []);
 
   const setBranchActive = useCallback((id: string, active: boolean) => {
@@ -162,7 +284,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         branches: s.branches.map((x) => (x.id === id ? { ...x, active } : x)),
-        activity: log(s, `${active ? "reactivated" : "deactivated"} branch ${b?.name ?? ""}`),
+        audit: log(s, {
+          action: `${active ? "reactivated" : "deactivated"} branch ${b?.name ?? ""}`,
+          category: "Branches",
+          target: b && { type: "branch", id, name: b.name },
+          changes: [{ field: "Status", before: active ? "Inactive" : "Active", after: active ? "Active" : "Inactive" }],
+          where: b?.name,
+        }),
       };
     });
   }, []);
@@ -179,32 +307,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...b,
           servicePoints: [...b.servicePoints, { ...input, id: newId("sp"), active: true }],
         })),
-        activity: log(s, `added service point ${input.name} to ${branch?.name ?? "branch"}`),
+        audit: log(s, {
+          action: `added service point ${input.name} to ${branch?.name ?? "a branch"}`,
+          category: "Branches",
+          target: branch && { type: "branch", id: branchId, name: branch.name },
+          changes: diff(undefined, input, { type: "Type", location: "Location" }),
+          where: branch?.name,
+        }),
       };
     });
   }, []);
 
   const updateServicePoint = useCallback((branchId: string, pointId: string, input: ServicePointInput) => {
-    setState((s) => ({
-      ...s,
-      branches: mapBranch(s, branchId, (b) => ({
-        ...b,
-        servicePoints: b.servicePoints.map((p) => (p.id === pointId ? { ...p, ...input } : p)),
-      })),
-      activity: log(s, `updated service point ${input.name}`),
-    }));
+    setState((s) => {
+      const branch = s.branches.find((b) => b.id === branchId);
+      const before = branch?.servicePoints.find((p) => p.id === pointId);
+      return {
+        ...s,
+        branches: mapBranch(s, branchId, (b) => ({
+          ...b,
+          servicePoints: b.servicePoints.map((p) => (p.id === pointId ? { ...p, ...input } : p)),
+        })),
+        audit: log(s, {
+          action: `updated service point ${input.name}`,
+          category: "Branches",
+          target: branch && { type: "branch", id: branchId, name: branch.name },
+          changes: diff(before, input, POINT_LABELS),
+          where: branch?.name,
+        }),
+      };
+    });
   }, []);
 
   const setServicePointActive = useCallback((branchId: string, pointId: string, active: boolean) => {
     setState((s) => {
-      const point = s.branches.find((b) => b.id === branchId)?.servicePoints.find((p) => p.id === pointId);
+      const branch = s.branches.find((b) => b.id === branchId);
+      const point = branch?.servicePoints.find((p) => p.id === pointId);
       return {
         ...s,
         branches: mapBranch(s, branchId, (b) => ({
           ...b,
           servicePoints: b.servicePoints.map((p) => (p.id === pointId ? { ...p, active } : p)),
         })),
-        activity: log(s, `${active ? "opened" : "closed"} service point ${point?.name ?? ""}`),
+        audit: log(s, {
+          action: `${active ? "opened" : "closed"} service point ${point?.name ?? ""}`,
+          category: "Branches",
+          target: branch && { type: "branch", id: branchId, name: branch.name },
+          changes: [{ field: "Open", before: show(!active), after: show(active) }],
+          where: branch?.name,
+        }),
       };
     });
   }, []);
@@ -218,16 +369,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addRole = useCallback((input: RoleInput) => {
     const role: Role = { ...input, id: newId("role"), createdAt: new Date().toISOString() };
-    setState((s) => ({ ...s, roles: [...s.roles, role], activity: log(s, `created role ${role.name}`) }));
+    setState((s) => ({
+      ...s,
+      roles: [...s.roles, role],
+      audit: log(s, {
+        action: `created role ${role.name}`,
+        category: "Roles",
+        target: { type: "role", id: role.id, name: role.name },
+        changes: listDiff("Permissions", [], role.permissions.map(permissionLabel)),
+        sensitive: true,
+      }),
+    }));
     return role;
   }, []);
 
   const updateRole = useCallback((id: string, input: RoleInput) => {
-    setState((s) => ({
-      ...s,
-      roles: s.roles.map((r) => (r.id === id && !r.locked ? { ...r, ...input } : r)),
-      activity: log(s, `updated role ${input.name}`),
-    }));
+    setState((s) => {
+      const before = s.roles.find((r) => r.id === id);
+      if (!before || before.locked) return s;
+      return {
+        ...s,
+        roles: s.roles.map((r) => (r.id === id ? { ...r, ...input } : r)),
+        audit: log(s, {
+          action: `updated role ${input.name}`,
+          category: "Roles",
+          target: { type: "role", id, name: input.name },
+          changes: [
+            ...diff(before, input, { name: "Name", description: "Description" }),
+            ...listDiff("Permissions", before.permissions.map(permissionLabel), input.permissions.map(permissionLabel)),
+          ],
+          sensitive: true,
+        }),
+      };
+    });
   }, []);
 
   const deleteRole = useCallback((id: string) => {
@@ -235,22 +409,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const role = s.roles.find((r) => r.id === id);
       // A role in use or the locked Super Admin role is never removed.
       if (!role || role.locked || s.users.some((u) => u.roleIds.includes(id))) return s;
-      return { ...s, roles: s.roles.filter((r) => r.id !== id), activity: log(s, `deleted role ${role.name}`) };
+      return {
+        ...s,
+        roles: s.roles.filter((r) => r.id !== id),
+        audit: log(s, {
+          action: `deleted role ${role.name}`,
+          category: "Roles",
+          target: { type: "role", id, name: role.name },
+          changes: listDiff("Permissions", role.permissions.map(permissionLabel), []),
+          sensitive: true,
+        }),
+      };
     });
   }, []);
 
   const inviteUser = useCallback((input: UserInput) => {
     const user: User = { ...input, id: newId("usr"), status: "invited", createdAt: new Date().toISOString() };
-    setState((s) => ({ ...s, users: [...s.users, user], activity: log(s, `invited ${user.name} (${user.email})`) }));
+    setState((s) => ({
+      ...s,
+      users: [...s.users, user],
+      audit: log(s, {
+        action: `invited ${user.name} (${user.email})`,
+        category: "Users",
+        target: { type: "user", id: user.id, name: user.name },
+        changes: userChanges(s, undefined, user),
+        sensitive: true,
+      }),
+    }));
     return user;
   }, []);
 
   const updateUser = useCallback((id: string, input: UserInput) => {
-    setState((s) => ({
-      ...s,
-      users: s.users.map((u) => (u.id === id ? { ...u, ...input } : u)),
-      activity: log(s, `updated ${input.name}'s account`),
-    }));
+    setState((s) => {
+      const before = s.users.find((u) => u.id === id);
+      return {
+        ...s,
+        users: s.users.map((u) => (u.id === id ? { ...u, ...input } : u)),
+        audit: log(s, {
+          action: `updated ${input.name}'s account`,
+          category: "Users",
+          target: { type: "user", id, name: input.name },
+          changes: userChanges(s, before, input),
+          sensitive: true,
+        }),
+      };
+    });
   }, []);
 
   const setUserStatus = useCallback((id: string, status: UserStatus) => {
@@ -261,7 +464,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         users: s.users.map((x) => (x.id === id ? { ...x, status } : x)),
-        activity: log(s, `${verb} ${u?.name ?? "a user"}`),
+        audit: log(s, {
+          action: `${verb} ${u?.name ?? "a user"}`,
+          category: "Users",
+          target: u && { type: "user", id, name: u.name },
+          changes: [{ field: "Status", before: show(u?.status), after: status }],
+          sensitive: true,
+        }),
       };
     });
   }, []);
@@ -269,7 +478,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const resendInvite = useCallback((id: string) => {
     setState((s) => {
       const u = s.users.find((x) => x.id === id);
-      return { ...s, activity: log(s, `resent the invitation to ${u?.name ?? "a user"}`) };
+      return {
+        ...s,
+        audit: log(s, {
+          action: `resent the invitation to ${u?.name ?? "a user"}`,
+          category: "Users",
+          target: u && { type: "user", id, name: u.name },
+        }),
+      };
     });
   }, []);
 
@@ -282,7 +498,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         modules: { ...s.modules, ...Object.fromEntries(changed.map((id) => [id, { ...s.modules[id]!, enabled }])) },
-        activity: log(s, `switched ${enabled ? "on" : "off"} ${names}`),
+        audit: log(s, {
+          action: `switched ${enabled ? "on" : "off"} ${names}`,
+          category: "Modules",
+          target: changed.length === 1 ? { type: "module", id: changed[0]!, name: names } : undefined,
+          changes: changed.map((m) => ({
+            field: moduleById(m)?.name ?? m,
+            before: enabled ? "Off" : "On",
+            after: enabled ? "On" : "Off",
+          })),
+        }),
       };
     });
   }, []);
@@ -293,7 +518,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ? {
             ...s,
             modules: { ...s.modules, [id]: { ...s.modules[id], settings } },
-            activity: log(s, `changed ${moduleById(id)?.name ?? id} options`),
+            audit: log(s, {
+              action: `changed ${moduleById(id)?.name ?? id} options`,
+              category: "Modules",
+              target: { type: "module", id, name: moduleById(id)?.name ?? id },
+              changes: diff(
+                s.modules[id].settings,
+                settings,
+                Object.fromEntries((moduleById(id)?.settings ?? []).map((x) => [x.key, x.label])),
+                Object.fromEntries(
+                  (moduleById(id)?.settings ?? [])
+                    .filter((x) => x.type === "money")
+                    .map((x) => [x.key, (v: unknown) => `₦${show(v)}`]),
+                ),
+              ),
+            }),
           }
         : s,
     );
@@ -306,7 +545,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         : {
             ...s,
             moduleRequests: [...s.moduleRequests, id],
-            activity: log(s, `asked Dr. Care to add ${moduleById(id)?.name ?? id}`),
+            audit: log(s, {
+              action: `asked Dr. Care to add ${moduleById(id)?.name ?? id}`,
+              category: "Modules",
+              target: { type: "module", id, name: moduleById(id)?.name ?? id },
+            }),
           },
     );
   }, []);
@@ -315,7 +558,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({
       ...s,
       numbering: { ...config, configured: true, updatedAt: new Date().toISOString() },
-      activity: log(s, `set the patient number format to ${config.template}`),
+      audit: log(s, {
+        action: `set the patient number format to ${config.template}`,
+        category: "Numbering",
+        target: { type: "numbering", id: "numbering", name: "Patient numbering" },
+        changes: diff(s.numbering.configured ? s.numbering : undefined, config, {
+          template: "Format",
+          prefix: "Prefix",
+          scope: "Counting",
+          reset: "Restart",
+          startAt: "First number",
+          keepLegacyNumber: "Keep old card numbers",
+        }),
+      }),
     }));
   }, []);
 
@@ -341,23 +596,65 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updatedAt: new Date().toISOString(),
       sections,
     };
-    setState((s) => ({ ...s, forms: [...s.forms, form], activity: log(s, `created the ${name} form`) }));
+    setState((s) => ({
+      ...s,
+      forms: [...s.forms, form],
+      audit: log(s, {
+        action: `created the ${name} form${copyFrom ? ` from ${copyFrom.name}` : ""}`,
+        category: "Forms",
+        target: { type: "form", id: form.id, name },
+      }),
+    }));
     return form;
   }, []);
 
   const saveForm = useCallback((form: RegistrationForm) => {
-    setState((s) => ({
-      ...s,
-      forms: s.forms.map((f) => (f.id === form.id ? { ...form, updatedAt: new Date().toISOString() } : f)),
-      activity: log(s, `updated the ${form.name} form`),
-    }));
+    setState((s) => {
+      const before = s.forms.find((f) => f.id === form.id);
+      const fields = (f?: RegistrationForm) => f?.sections.flatMap((sec) => sec.fields) ?? [];
+      const required = (f?: RegistrationForm) =>
+        fields(f)
+          .filter((x) => x.required)
+          .map((x) => x.label);
+      return {
+        ...s,
+        forms: s.forms.map((f) => (f.id === form.id ? { ...form, updatedAt: new Date().toISOString() } : f)),
+        audit: log(s, {
+          action: `updated the ${form.name} form`,
+          category: "Forms",
+          target: { type: "form", id: form.id, name: form.name },
+          changes: [
+            ...diff(before, form, { name: "Name", description: "Description" }),
+            ...listDiff(
+              "Sections",
+              before?.sections.map((x) => x.title) ?? [],
+              form.sections.map((x) => x.title),
+            ),
+            ...listDiff(
+              "Fields",
+              fields(before).map((x) => x.label),
+              fields(form).map((x) => x.label),
+            ),
+            ...listDiff("Required", required(before), required(form)),
+          ],
+        }),
+      };
+    });
   }, []);
 
   const deleteForm = useCallback((id: string) => {
     setState((s) => {
       const form = s.forms.find((f) => f.id === id);
       if (!form || s.categories.some((c) => c.formId === id)) return s;
-      return { ...s, forms: s.forms.filter((f) => f.id !== id), activity: log(s, `deleted the ${form.name} form`) };
+      return {
+        ...s,
+        forms: s.forms.filter((f) => f.id !== id),
+        audit: log(s, {
+          action: `deleted the ${form.name} form`,
+          category: "Forms",
+          target: { type: "form", id, name: form.name },
+        }),
+      };
     });
   }, []);
 
@@ -365,16 +662,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({
       ...s,
       categories: [...s.categories, { ...input, id: newId("cat"), active: true }],
-      activity: log(s, `added patient category ${input.name} (${input.code})`),
+      audit: log(s, {
+        action: `added patient category ${input.name} (${input.code})`,
+        category: "Forms",
+        changes: diff(undefined, { ...input, formId: formName(s, input.formId) }, CATEGORY_LABELS),
+      }),
     }));
   }, []);
 
   const updateCategory = useCallback((id: string, input: CategoryInput) => {
-    setState((s) => ({
-      ...s,
-      categories: s.categories.map((c) => (c.id === id ? { ...c, ...input } : c)),
-      activity: log(s, `updated patient category ${input.name}`),
-    }));
+    setState((s) => {
+      const before = s.categories.find((c) => c.id === id);
+      return {
+        ...s,
+        categories: s.categories.map((c) => (c.id === id ? { ...c, ...input } : c)),
+        audit: log(s, {
+          action: `updated patient category ${input.name}`,
+          category: "Forms",
+          changes: diff(
+            before && { ...before, formId: formName(s, before.formId) },
+            { ...input, formId: formName(s, input.formId) },
+            CATEGORY_LABELS,
+          ),
+        }),
+      };
+    });
   }, []);
 
   const setCategoryActive = useCallback((id: string, active: boolean) => {
@@ -383,13 +695,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         categories: s.categories.map((x) => (x.id === id ? { ...x, active } : x)),
-        activity: log(s, `${active ? "reactivated" : "deactivated"} patient category ${c?.name ?? ""}`),
+        audit: log(s, {
+          action: `${active ? "reactivated" : "deactivated"} patient category ${c?.name ?? ""}`,
+          category: "Forms",
+          changes: [{ field: "In use", before: show(!active), after: show(active) }],
+        }),
       };
     });
   }, []);
 
   const saveSettings = useCallback((patch: Partial<HospitalSettings>, what: string) => {
-    setState((s) => ({ ...s, settings: { ...s.settings, ...patch }, activity: log(s, `changed ${what}`) }));
+    setState((s) => {
+      const after = { ...s.settings, ...patch };
+      return {
+        ...s,
+        settings: after,
+        audit: log(s, {
+          action: `changed ${what}`,
+          category: "Settings",
+          target: { type: "settings", id: "settings", name: "Settings" },
+          changes: settingsChanges(s, s.settings, after),
+          // Who must approve risky actions is itself a risky change.
+          sensitive: JSON.stringify(s.settings.approvals) !== JSON.stringify(after.approvals),
+        }),
+      };
+    });
+  }, []);
+
+  const exportedAudit = useCallback((count: number, filtered: boolean) => {
+    setState((s) => ({
+      ...s,
+      audit: log(s, {
+        action: `exported ${filtered ? "a filtered view of " : ""}the audit log (${count} ${count === 1 ? "entry" : "entries"})`,
+        category: "Audit",
+      }),
+    }));
   }, []);
 
   const resetDemo = useCallback(() => setState(initialState()), []);
@@ -422,6 +762,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateCategory,
       setCategoryActive,
       saveSettings,
+      exportedAudit,
       currentUserId: CURRENT_USER_ID,
       ready: loaded,
       toast,
@@ -454,6 +795,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateCategory,
       setCategoryActive,
       saveSettings,
+      exportedAudit,
       toast,
       notify,
       resetDemo,

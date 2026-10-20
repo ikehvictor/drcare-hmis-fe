@@ -54,11 +54,52 @@ export interface Tenant {
   entitledModules: string[];
 }
 
-export interface ActivityItem {
+export const AUDIT_CATEGORIES = [
+  "Branches",
+  "Users",
+  "Roles",
+  "Modules",
+  "Numbering",
+  "Forms",
+  "Settings",
+  "Sign-in",
+  "Support",
+  "Audit",
+] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+export interface AuditChange {
+  field: string;
+  before: string;
+  after: string;
+}
+
+export interface AuditTarget {
+  type: "branch" | "user" | "role" | "module" | "form" | "category" | "numbering" | "settings";
   id: string;
-  actor: string;
-  action: string;
+  name: string;
+}
+
+/**
+ * One line of the audit log (docs/ARCHITECTURE.md §7): who, what, when, where, and the values before and after.
+ * Entries are only ever added, never edited or removed.
+ */
+export interface AuditEntry {
+  id: string;
   at: string;
+  actor: string;
+  actorRole: string;
+  /** What happened, written to follow the actor's name, e.g. "deactivated branch Lekki Annex Clinic". */
+  action: string;
+  category: AuditCategory;
+  target?: AuditTarget;
+  changes?: AuditChange[];
+  /** The branch it happened at, or "Hospital-wide". */
+  where: string;
+  /** How it was done, e.g. "Web admin" or "Front desk PC 2". */
+  via: string;
+  /** Touches money, access or patient identity. */
+  sensitive?: boolean;
 }
 
 export interface Role {

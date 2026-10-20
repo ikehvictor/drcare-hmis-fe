@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
-import { CURRENT_STAGE, NAV } from "@/lib/nav";
+import { NAV } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 
 function isActive(pathname: string, href: string) {
@@ -43,9 +43,6 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
                   >
                     <Icon className="size-4 shrink-0" aria-hidden />
                     <span className="flex-1 truncate">{item.label}</span>
-                    {item.stage > CURRENT_STAGE && (
-                      <span className="rounded px-1.5 py-px text-[10px] text-white/45 ring-1 ring-white/15">Soon</span>
-                    )}
                   </Link>
                 </li>
               );

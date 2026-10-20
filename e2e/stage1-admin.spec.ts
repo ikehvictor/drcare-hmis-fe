@@ -21,15 +21,22 @@ test("sign-in screen leads to the admin overview", async ({ page }) => {
   await expect(page.getByText("4 of 6 done")).toBeVisible();
 });
 
-test("navigation reaches branches and shows later stages as coming soon", async ({ page }) => {
-  await openNav(page);
-  await page.getByRole("link", { name: "Branches & service points" }).click();
-  await expect(page.getByRole("heading", { name: "Branches & service points", level: 1 })).toBeVisible();
-
-  await openNav(page);
-  await page.getByRole("link", { name: /Audit log/ }).click();
-  await expect(page.getByRole("heading", { name: "Audit log" })).toBeVisible();
-  await expect(page.getByText("planned for stage 5")).toBeVisible();
+test("navigation reaches every admin section", async ({ page }) => {
+  const sections = [
+    "Branches & service points",
+    "Users",
+    "Roles & permissions",
+    "Modules",
+    "Patient numbering",
+    "Registration forms",
+    "Settings",
+    "Audit log",
+  ];
+  for (const name of sections) {
+    await openNav(page);
+    await page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name, exact: true }).click();
+    await expect(page.locator("main").getByRole("heading", { name, level: 1 })).toBeVisible();
+  }
 });
 
 test("search filters the branch list", async ({ page }) => {

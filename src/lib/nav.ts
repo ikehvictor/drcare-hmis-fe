@@ -11,15 +11,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/** Sections up to this stage are built; later ones show a placeholder. */
-export const CURRENT_STAGE = 4;
-
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Stage the section ships in. */
-  stage: number;
 }
 
 export interface NavGroup {
@@ -32,29 +27,29 @@ export const NAV: NavGroup[] = [
   {
     label: "Hospital",
     items: [
-      { label: "Overview", href: "/admin", icon: LayoutDashboard, stage: 1 },
-      { label: "Branches & service points", href: "/admin/branches", icon: Building2, stage: 1 },
+      { label: "Overview", href: "/admin", icon: LayoutDashboard },
+      { label: "Branches & service points", href: "/admin/branches", icon: Building2 },
     ],
   },
   {
     label: "People & access",
     items: [
-      { label: "Users", href: "/admin/users", icon: Users, stage: 2 },
-      { label: "Roles & permissions", href: "/admin/roles", icon: ShieldCheck, stage: 2 },
+      { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Roles & permissions", href: "/admin/roles", icon: ShieldCheck },
     ],
   },
   {
     label: "Configuration",
     items: [
-      { label: "Modules", href: "/admin/modules", icon: Blocks, stage: 3 },
-      { label: "Patient numbering", href: "/admin/numbering", icon: Hash, stage: 3 },
-      { label: "Registration forms", href: "/admin/forms", icon: FileText, stage: 4 },
-      { label: "Settings", href: "/admin/settings", icon: Settings, stage: 4 },
+      { label: "Modules", href: "/admin/modules", icon: Blocks },
+      { label: "Patient numbering", href: "/admin/numbering", icon: Hash },
+      { label: "Registration forms", href: "/admin/forms", icon: FileText },
+      { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
   {
     label: "Oversight",
-    items: [{ label: "Audit log", href: "/admin/audit", icon: ScrollText, stage: 5 }],
+    items: [{ label: "Audit log", href: "/admin/audit", icon: ScrollText }],
   },
 ];
 

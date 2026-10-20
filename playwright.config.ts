@@ -8,6 +8,8 @@ export default defineConfig({
   fullyParallel: true,
   // Production build under parallel load: give page transitions more than the default 5s.
   expect: { timeout: 10_000 },
+  // Long flows (switch modules on, then fill a form) can pass 30s when five browsers share one laptop.
+  timeout: 60_000,
   reporter: [["list"], ["html", { open: "never" }]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [
