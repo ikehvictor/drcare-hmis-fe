@@ -6,18 +6,23 @@ import {
   CURRENT_USER_ID,
   seedActivity,
   seedBranches,
+  seedCategories,
+  seedForms,
   seedModules,
   seedNumbering,
   seedRoles,
+  seedSettings,
   seedTenant,
   seedUsers,
 } from "./mock-data";
 import { moduleById, type SettingValue } from "./modules";
 import type { NumberingConfig } from "./numbering";
+import { CORE_FIELDS, type PatientCategory, type RegistrationForm } from "./forms";
+import type { HospitalSettings } from "./settings";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v3";
+const STORAGE_KEY = "drcare-admin-demo-v4";
 
 interface State {
   tenant: Tenant;
@@ -28,12 +33,16 @@ interface State {
   /** Modules the hospital has asked Dr. Care to add to its plan. */
   moduleRequests: string[];
   numbering: NumberingConfig;
+  forms: RegistrationForm[];
+  categories: PatientCategory[];
+  settings: HospitalSettings;
   activity: ActivityItem[];
 }
 
 export type BranchInput = Pick<Branch, "name" | "code" | "address" | "city" | "state" | "phone" | "isMain">;
 export type ServicePointInput = Pick<ServicePoint, "name" | "type" | "location">;
 export type RoleInput = Pick<Role, "name" | "description" | "permissions">;
+export type CategoryInput = Pick<PatientCategory, "code" | "name" | "formId">;
 export type UserInput = Pick<User, "name" | "email" | "phone" | "jobTitle" | "roleIds" | "branchScope">;
 
 interface Store extends State {
@@ -56,6 +65,15 @@ interface Store extends State {
   requestModule: (id: string) => void;
   isModuleOn: (id: string) => boolean;
   saveNumbering: (config: Omit<NumberingConfig, "configured" | "updatedAt">) => void;
+  addForm: (name: string, description: string, copyFrom?: RegistrationForm) => RegistrationForm;
+  saveForm: (form: RegistrationForm) => void;
+  /** Only removes a form no category uses. */
+  deleteForm: (id: string) => void;
+  addCategory: (input: CategoryInput) => void;
+  updateCategory: (id: string, input: CategoryInput) => void;
+  setCategoryActive: (id: string, active: boolean) => void;
+  /** Saves one part of the settings; `what` names it in the activity log. */
+  saveSettings: (patch: Partial<HospitalSettings>, what: string) => void;
   currentUserId: string;
   /** False until saved demo data has been read from the browser. */
   ready: boolean;
@@ -74,6 +92,9 @@ const initialState = (): State => ({
   modules: seedModules,
   moduleRequests: [],
   numbering: seedNumbering,
+  forms: seedForms,
+  categories: seedCategories,
+  settings: seedSettings,
   activity: seedActivity,
 });
 
@@ -298,6 +319,79 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const addForm = useCallback((name: string, description: string, copyFrom?: RegistrationForm) => {
+    // A blank form still starts with the core fields every patient record has.
+    const sections = copyFrom
+      ? copyFrom.sections.map((sec) => ({
+          ...sec,
+          id: newId("sec"),
+          fields: sec.fields.map((f) => ({ ...f, options: f.options && [...f.options], id: newId("fld") })),
+        }))
+      : [
+          {
+            id: newId("sec"),
+            title: "Patient details",
+            fields: CORE_FIELDS.map((f) => ({ ...f, id: newId("fld"), kind: "core" as const })),
+          },
+        ];
+    const form: RegistrationForm = {
+      id: newId("form"),
+      name,
+      description,
+      updatedAt: new Date().toISOString(),
+      sections,
+    };
+    setState((s) => ({ ...s, forms: [...s.forms, form], activity: log(s, `created the ${name} form`) }));
+    return form;
+  }, []);
+
+  const saveForm = useCallback((form: RegistrationForm) => {
+    setState((s) => ({
+      ...s,
+      forms: s.forms.map((f) => (f.id === form.id ? { ...form, updatedAt: new Date().toISOString() } : f)),
+      activity: log(s, `updated the ${form.name} form`),
+    }));
+  }, []);
+
+  const deleteForm = useCallback((id: string) => {
+    setState((s) => {
+      const form = s.forms.find((f) => f.id === id);
+      if (!form || s.categories.some((c) => c.formId === id)) return s;
+      return { ...s, forms: s.forms.filter((f) => f.id !== id), activity: log(s, `deleted the ${form.name} form`) };
+    });
+  }, []);
+
+  const addCategory = useCallback((input: CategoryInput) => {
+    setState((s) => ({
+      ...s,
+      categories: [...s.categories, { ...input, id: newId("cat"), active: true }],
+      activity: log(s, `added patient category ${input.name} (${input.code})`),
+    }));
+  }, []);
+
+  const updateCategory = useCallback((id: string, input: CategoryInput) => {
+    setState((s) => ({
+      ...s,
+      categories: s.categories.map((c) => (c.id === id ? { ...c, ...input } : c)),
+      activity: log(s, `updated patient category ${input.name}`),
+    }));
+  }, []);
+
+  const setCategoryActive = useCallback((id: string, active: boolean) => {
+    setState((s) => {
+      const c = s.categories.find((x) => x.id === id);
+      return {
+        ...s,
+        categories: s.categories.map((x) => (x.id === id ? { ...x, active } : x)),
+        activity: log(s, `${active ? "reactivated" : "deactivated"} patient category ${c?.name ?? ""}`),
+      };
+    });
+  }, []);
+
+  const saveSettings = useCallback((patch: Partial<HospitalSettings>, what: string) => {
+    setState((s) => ({ ...s, settings: { ...s.settings, ...patch }, activity: log(s, `changed ${what}`) }));
+  }, []);
+
   const resetDemo = useCallback(() => setState(initialState()), []);
 
   const value = useMemo<Store>(
@@ -321,6 +415,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       requestModule,
       isModuleOn: (id: string) => !!state.modules[id]?.enabled,
       saveNumbering,
+      addForm,
+      saveForm,
+      deleteForm,
+      addCategory,
+      updateCategory,
+      setCategoryActive,
+      saveSettings,
       currentUserId: CURRENT_USER_ID,
       ready: loaded,
       toast,
@@ -346,6 +447,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateModuleSettings,
       requestModule,
       saveNumbering,
+      addForm,
+      saveForm,
+      deleteForm,
+      addCategory,
+      updateCategory,
+      setCategoryActive,
+      saveSettings,
       toast,
       notify,
       resetDemo,

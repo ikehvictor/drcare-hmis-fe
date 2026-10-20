@@ -1,6 +1,8 @@
+import { CORE_FIELDS, STANDARD_FIELDS, type FormField, type PatientCategory, type RegistrationForm } from "./forms";
 import { defaultSettings, MODULES } from "./modules";
 import type { NumberingConfig } from "./numbering";
 import { ALL_PERMISSION_KEYS } from "./permissions";
+import type { HospitalSettings } from "./settings";
 import type { ActivityItem, Branch, ModuleState, Role, Tenant, User } from "./types";
 
 export const seedTenant: Tenant = {
@@ -191,4 +193,96 @@ export const seedNumbering: NumberingConfig = {
   startAt: 1,
   keepLegacyNumber: false,
   configured: false,
+};
+
+const field = (seed: Omit<FormField, "id" | "kind">, kind: FormField["kind"], i: string): FormField => ({
+  ...seed,
+  id: `fld_${i}_${seed.key}`,
+  kind,
+});
+const core = (form: string) => CORE_FIELDS.map((f) => field(f, "core", form));
+const std = (form: string, ...keys: string[]) =>
+  keys.map((k) => field(STANDARD_FIELDS.find((f) => f.key === k)!, "standard", form));
+
+export const seedForms: RegistrationForm[] = [
+  {
+    id: "form_general",
+    name: "General registration",
+    description: "Adults walking in or referred.",
+    updatedAt: T0,
+    sections: [
+      {
+        id: "sec_g1",
+        title: "Patient details",
+        fields: [...core("g"), ...std("g", "email", "maritalStatus", "occupation")],
+      },
+      { id: "sec_g2", title: "Contact & address", fields: std("g", "address", "stateOfOrigin") },
+      { id: "sec_g3", title: "Next of kin", fields: std("g", "nokName", "nokRelationship", "nokPhone") },
+    ],
+  },
+  {
+    id: "form_child",
+    name: "Child registration",
+    description: "Under 16s, registered by a parent or guardian.",
+    updatedAt: T0,
+    sections: [
+      { id: "sec_c1", title: "Child", fields: [...core("c"), ...std("c", "genotype", "allergies")] },
+      {
+        id: "sec_c2",
+        title: "Parent or guardian",
+        fields: std("c", "guardianName", "guardianPhone").map((f) => ({ ...f, required: true })),
+      },
+    ],
+  },
+  {
+    id: "form_anc",
+    name: "Antenatal registration",
+    description: "Booking visit for antenatal care.",
+    updatedAt: T0,
+    sections: [
+      {
+        id: "sec_a1",
+        title: "Patient details",
+        fields: [...core("a"), ...std("a", "maritalStatus", "bloodGroup", "genotype")],
+      },
+      {
+        id: "sec_a2",
+        title: "Pregnancy",
+        fields: std("a", "lmp", "gravida").map((f) => ({ ...f, required: f.key === "lmp" })),
+      },
+      { id: "sec_a3", title: "Next of kin", fields: std("a", "nokName", "nokPhone") },
+    ],
+  },
+];
+
+export const seedCategories: PatientCategory[] = [
+  { id: "cat_gen", code: "GEN", name: "General", formId: "form_general", active: true },
+  { id: "cat_chd", code: "CHD", name: "Child", formId: "form_child", active: true },
+  { id: "cat_anc", code: "ANC", name: "Antenatal", formId: "form_anc", active: true },
+  { id: "cat_cor", code: "COR", name: "Corporate staff", formId: "form_general", active: true },
+];
+
+export const seedSettings: HospitalSettings = {
+  profile: {
+    displayName: seedTenant.name,
+    shortName: "Lakeside",
+    email: "info@lakeside.example",
+    phone: "+234 801 234 5678",
+    address: "14 Adeola Odeku Street, Victoria Island, Lagos",
+    country: "Nigeria",
+    currency: "NGN (₦)",
+    timezone: "Africa/Lagos (WAT)",
+    dateFormat: "DD/MM/YYYY",
+  },
+  security: { sessionTimeoutMinutes: 15, pinSwitch: true, twoFactor: "admins", passwordMinLength: 10 },
+  approvals: {
+    "admin.users.manage": { required: false, approverRoleId: "role_super" },
+    "admin.roles.manage": { required: false, approverRoleId: "role_super" },
+    "patients.merge": { required: true, approverRoleId: "role_super" },
+    "patients.deactivate": { required: false, approverRoleId: "role_super" },
+    "payment.refund": { required: true, approverRoleId: "role_head_cashier" },
+    "payment.void": { required: true, approverRoleId: "role_head_cashier" },
+    "billing.discount": { required: true, approverRoleId: "role_super" },
+  },
+  branchOverrides: { br_annex: { sessionTimeoutMinutes: 30 } },
 };

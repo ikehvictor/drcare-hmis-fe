@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Dialog, Field, Input, PageHeader, SaveBar, Select, Switch } from "@/components/ui";
 import {
-  PATIENT_CATEGORIES,
   PRESETS,
   render,
   sampleRegistrations,
@@ -48,7 +47,8 @@ export default function NumberingPage() {
 }
 
 function NumberingEditor({ saved }: { saved: NumberingConfig }) {
-  const { branches, isModuleOn, saveNumbering, notify } = useStore();
+  const { branches, categories, isModuleOn, saveNumbering, notify } = useStore();
+  const activeCategories = categories.filter((c) => c.active);
   const [draft, setDraft] = useState<Draft>(() => toDraft(saved));
   const [confirming, setConfirming] = useState(false);
   const [today, setToday] = useState<Date | null>(null);
@@ -62,7 +62,8 @@ function NumberingEditor({ saved }: { saved: NumberingConfig }) {
   const valid = errors.length === 0;
   const dirty = !saved.configured || JSON.stringify(draft) !== JSON.stringify(toDraft(saved));
   const activeBranches = branches.filter((b) => b.active);
-  const samples = valid && today ? sampleRegistrations({ ...draft, configured: true }, activeBranches, today) : [];
+  const samples =
+    valid && today ? sampleRegistrations({ ...draft, configured: true }, activeBranches, activeCategories, today) : [];
   const digits = seqDigits(draft.template);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
@@ -320,9 +321,14 @@ function NumberingEditor({ saved }: { saved: NumberingConfig }) {
 
             {draft.scope === "category" && (
               <div className="mt-4 border-t border-line pt-3">
-                <p className="text-xs text-muted">Category codes (edited with registration forms)</p>
+                <p className="text-xs text-muted">
+                  Category codes, set under{" "}
+                  <Link href="/admin/forms" className="underline">
+                    Registration forms
+                  </Link>
+                </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {PATIENT_CATEGORIES.map((c) => (
+                  {activeCategories.map((c) => (
                     <Badge key={c.code}>
                       {c.code} · {c.name}
                     </Badge>

@@ -16,18 +16,11 @@ export interface NumberingConfig {
   updatedAt?: string;
 }
 
-export interface PatientCategory {
+/** Only the parts of a patient category numbering needs; categories are edited with registration forms. */
+export interface CategoryCode {
   code: string;
   name: string;
 }
-
-// Categories are edited with the registration forms in stage 4; numbering only reads their codes.
-export const PATIENT_CATEGORIES: PatientCategory[] = [
-  { code: "GEN", name: "General" },
-  { code: "CHD", name: "Child" },
-  { code: "ANC", name: "Antenatal" },
-  { code: "COR", name: "Corporate staff" },
-];
 
 export const TOKENS = [
   { token: "{PREFIX}", label: "Prefix", help: "Your fixed text" },
@@ -139,7 +132,7 @@ export interface SampleRegistration {
   label: string;
   branchCode: string;
   branchName: string;
-  category: PatientCategory;
+  category: CategoryCode;
   date: Date;
   number: string;
 }
@@ -151,11 +144,17 @@ export interface SampleRegistration {
 export function sampleRegistrations(
   config: NumberingConfig,
   branches: { code: string; name: string }[],
+  categories: CategoryCode[],
   today: Date,
 ): SampleRegistration[] {
   const main = branches[0] ?? { code: "MAIN", name: "Main branch" };
   const other = branches[1] ?? main;
-  const [gen, chd, anc] = [PATIENT_CATEGORIES[0]!, PATIENT_CATEGORIES[1]!, PATIENT_CATEGORIES[2]!];
+  const fallback = { code: "GEN", name: "General" };
+  const [gen, chd, anc] = [
+    categories[0] ?? fallback,
+    categories[1] ?? categories[0] ?? fallback,
+    categories[2] ?? categories[0] ?? fallback,
+  ];
   const counters = new Map<string, number>();
 
   const next = (branchCode: string, cat: string, date: Date, afterReset: boolean) => {
@@ -175,7 +174,7 @@ export function sampleRegistrations(
   };
 
   const rows: SampleRegistration[] = [];
-  const add = (label: string, b: typeof main, cat: PatientCategory, date: Date, afterReset = false) =>
+  const add = (label: string, b: typeof main, cat: CategoryCode, date: Date, afterReset = false) =>
     rows.push({
       label,
       branchCode: b.code,

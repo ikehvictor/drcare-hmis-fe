@@ -9,7 +9,7 @@ import { useStore } from "@/lib/store";
 import { RelativeTime } from "@/components/relative-time";
 
 export default function OverviewPage() {
-  const { tenant, branches, users, roles, activity, isModuleOn, numbering } = useStore();
+  const { tenant, settings, branches, users, roles, activity, isModuleOn, numbering } = useStore();
   const switchable = tenant.entitledModules.filter((id) => !moduleById(id)?.core);
   const modulesOn = switchable.filter(isModuleOn);
   const seats = users.filter((u) => u.status !== "suspended").length;
@@ -62,7 +62,7 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="Good morning, Ada"
-        description={`Here's where ${tenant.name} stands. Finish the setup steps and your front desk can start registering patients.`}
+        description={`Here's where ${settings.profile.displayName} stands. Finish the setup steps and your front desk can start registering patients.`}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -58,21 +58,30 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { tenant } = useStore();
+  const { tenant, settings } = useStore();
+  const { displayName, logo } = settings.profile;
 
   return (
     <div className="flex h-full flex-col bg-navy text-white">
       <div className="flex items-center gap-3 px-5 pt-5 pb-4">
-        <Image src="/brand/logo.png" alt="" width={40} height={32} className="h-8 w-auto" priority />
+        <Image src="/brand/logo.png" alt="" width={40} height={32} priority />
         <div className="leading-tight">
           <div className="font-display text-lg font-semibold">Dr. Care</div>
           <div className="text-[11px] tracking-wide text-cyan/90 uppercase">Hospital admin</div>
         </div>
       </div>
 
-      <div className="mx-4 mb-4 rounded-lg bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
-        <div className="truncate text-sm font-medium">{tenant.name}</div>
-        <div className="text-xs text-white/60">{tenant.plan} plan</div>
+      <div className="mx-4 mb-4 flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element -- a local data URL, nothing to optimise
+          <img src={logo} alt="" className="size-8 shrink-0 rounded-md bg-white object-contain p-0.5" />
+        )}
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium" data-testid="sidebar-hospital">
+            {displayName}
+          </div>
+          <div className="text-xs text-white/60">{tenant.plan} plan</div>
+        </div>
       </div>
 
       <nav aria-label="Admin" className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
