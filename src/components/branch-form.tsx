@@ -36,7 +36,8 @@ export function BranchFormDialog({
     if (!form.name.trim()) next.name = "Enter the branch name.";
     const code = form.code.trim().toUpperCase();
     if (!/^[A-Z]{2,5}$/.test(code)) next.code = "Use 2 to 5 letters, e.g. LAG.";
-    else if (branches.some((b) => b.code === code && b.id !== branch?.id)) next.code = `${code} is already used by another branch.`;
+    else if (branches.some((b) => b.code === code && b.id !== branch?.id))
+      next.code = `${code} is already used by another branch.`;
     if (!form.city.trim()) next.city = "Enter the city or area.";
     if (!form.state.trim()) next.state = "Enter the state.";
     setErrors(next);
@@ -72,7 +73,14 @@ export function BranchFormDialog({
       <form id="branch-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-3" noValidate>
         <div className="sm:col-span-2">
           <Field label="Branch name" error={errors.name}>
-            {(id) => <Input id={id} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Ikeja Clinic" />}
+            {(id) => (
+              <Input
+                id={id}
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Ikeja Clinic"
+              />
+            )}
           </Field>
         </div>
         <Field label="Code" error={errors.code} hint="Shows in patient numbers">
@@ -102,7 +110,15 @@ export function BranchFormDialog({
         </Field>
         <div className="sm:col-span-3">
           <Field label="Phone">
-            {(id) => <Input id={id} type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+234" />}
+            {(id) => (
+              <Input
+                id={id}
+                type="tel"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="+234"
+              />
+            )}
           </Field>
         </div>
         <label className="flex items-start gap-3 rounded-lg bg-background p-3 text-sm sm:col-span-3">

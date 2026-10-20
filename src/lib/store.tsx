@@ -1,21 +1,25 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ActivityItem, Branch, ServicePoint, Tenant } from "./types";
-import { seedActivity, seedBranches, seedTenant } from "./mock-data";
+import type { ActivityItem, Branch, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
+import { CURRENT_USER_ID, seedActivity, seedBranches, seedRoles, seedTenant, seedUsers } from "./mock-data";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v1";
+const STORAGE_KEY = "drcare-admin-demo-v2";
 
 interface State {
   tenant: Tenant;
   branches: Branch[];
+  roles: Role[];
+  users: User[];
   activity: ActivityItem[];
 }
 
 export type BranchInput = Pick<Branch, "name" | "code" | "address" | "city" | "state" | "phone" | "isMain">;
 export type ServicePointInput = Pick<ServicePoint, "name" | "type" | "location">;
+export type RoleInput = Pick<Role, "name" | "description" | "permissions">;
+export type UserInput = Pick<User, "name" | "email" | "phone" | "jobTitle" | "roleIds" | "branchScope">;
 
 interface Store extends State {
   addBranch: (input: BranchInput) => Branch;
@@ -24,6 +28,18 @@ interface Store extends State {
   addServicePoint: (branchId: string, input: ServicePointInput) => void;
   updateServicePoint: (branchId: string, pointId: string, input: ServicePointInput) => void;
   setServicePointActive: (branchId: string, pointId: string, active: boolean) => void;
+  addRole: (input: RoleInput) => Role;
+  updateRole: (id: string, input: RoleInput) => void;
+  deleteRole: (id: string) => void;
+  inviteUser: (input: UserInput) => User;
+  updateUser: (id: string, input: UserInput) => void;
+  setUserStatus: (id: string, status: UserStatus) => void;
+  resendInvite: (id: string) => void;
+  currentUserId: string;
+  /** False until saved demo data has been read from the browser. */
+  ready: boolean;
+  toast: string | null;
+  notify: (message: string) => void;
   resetDemo: () => void;
 }
 
@@ -32,6 +48,8 @@ const StoreContext = createContext<Store | null>(null);
 const initialState = (): State => ({
   tenant: seedTenant,
   branches: seedBranches,
+  roles: seedRoles,
+  users: seedUsers,
   activity: seedActivity,
 });
 
@@ -41,12 +59,13 @@ const ACTOR = "Ada Okafor";
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>(initialState);
   const [loaded, setLoaded] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from browser storage
-      if (raw) setState(JSON.parse(raw));
+      if (raw) setState({ ...initialState(), ...JSON.parse(raw) });
     } catch {
       // Storage unavailable or corrupt: keep the seed data.
     }
@@ -62,10 +81,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, loaded]);
 
-  const log = (s: State, action: string): ActivityItem[] => [
-    { id: newId("act"), actor: ACTOR, action, at: new Date().toISOString() },
-    ...s.activity,
-  ].slice(0, 30);
+  const log = (s: State, action: string): ActivityItem[] =>
+    [{ id: newId("act"), actor: ACTOR, action, at: new Date().toISOString() }, ...s.activity].slice(0, 30);
 
   const addBranch = useCallback((input: BranchInput) => {
     const branch: Branch = {
@@ -88,11 +105,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({
       ...s,
       branches: s.branches.map((b) =>
-        b.id === id
-          ? { ...b, ...input, code: input.code.toUpperCase() }
-          : input.isMain
-            ? { ...b, isMain: false }
-            : b,
+        b.id === id ? { ...b, ...input, code: input.code.toUpperCase() } : input.isMain ? { ...b, isMain: false } : b,
       ),
       activity: log(s, `updated branch ${input.name}`),
     }));
@@ -151,6 +164,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const notify = useCallback((message: string) => setToast(message), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const addRole = useCallback((input: RoleInput) => {
+    const role: Role = { ...input, id: newId("role"), createdAt: new Date().toISOString() };
+    setState((s) => ({ ...s, roles: [...s.roles, role], activity: log(s, `created role ${role.name}`) }));
+    return role;
+  }, []);
+
+  const updateRole = useCallback((id: string, input: RoleInput) => {
+    setState((s) => ({
+      ...s,
+      roles: s.roles.map((r) => (r.id === id && !r.locked ? { ...r, ...input } : r)),
+      activity: log(s, `updated role ${input.name}`),
+    }));
+  }, []);
+
+  const deleteRole = useCallback((id: string) => {
+    setState((s) => {
+      const role = s.roles.find((r) => r.id === id);
+      // A role in use or the locked Super Admin role is never removed.
+      if (!role || role.locked || s.users.some((u) => u.roleIds.includes(id))) return s;
+      return { ...s, roles: s.roles.filter((r) => r.id !== id), activity: log(s, `deleted role ${role.name}`) };
+    });
+  }, []);
+
+  const inviteUser = useCallback((input: UserInput) => {
+    const user: User = { ...input, id: newId("usr"), status: "invited", createdAt: new Date().toISOString() };
+    setState((s) => ({ ...s, users: [...s.users, user], activity: log(s, `invited ${user.name} (${user.email})`) }));
+    return user;
+  }, []);
+
+  const updateUser = useCallback((id: string, input: UserInput) => {
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.id === id ? { ...u, ...input } : u)),
+      activity: log(s, `updated ${input.name}'s account`),
+    }));
+  }, []);
+
+  const setUserStatus = useCallback((id: string, status: UserStatus) => {
+    if (id === CURRENT_USER_ID) return;
+    setState((s) => {
+      const u = s.users.find((x) => x.id === id);
+      const verb = status === "suspended" ? "suspended" : "reactivated";
+      return {
+        ...s,
+        users: s.users.map((x) => (x.id === id ? { ...x, status } : x)),
+        activity: log(s, `${verb} ${u?.name ?? "a user"}`),
+      };
+    });
+  }, []);
+
+  const resendInvite = useCallback((id: string) => {
+    setState((s) => {
+      const u = s.users.find((x) => x.id === id);
+      return { ...s, activity: log(s, `resent the invitation to ${u?.name ?? "a user"}`) };
+    });
+  }, []);
+
   const resetDemo = useCallback(() => setState(initialState()), []);
 
   const value = useMemo<Store>(
@@ -162,9 +239,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addServicePoint,
       updateServicePoint,
       setServicePointActive,
+      addRole,
+      updateRole,
+      deleteRole,
+      inviteUser,
+      updateUser,
+      setUserStatus,
+      resendInvite,
+      currentUserId: CURRENT_USER_ID,
+      ready: loaded,
+      toast,
+      notify,
       resetDemo,
     }),
-    [state, addBranch, updateBranch, setBranchActive, addServicePoint, updateServicePoint, setServicePointActive, resetDemo],
+    [
+      state,
+      addBranch,
+      updateBranch,
+      setBranchActive,
+      addServicePoint,
+      updateServicePoint,
+      setServicePointActive,
+      addRole,
+      updateRole,
+      deleteRole,
+      inviteUser,
+      updateUser,
+      setUserStatus,
+      resendInvite,
+      toast,
+      notify,
+      resetDemo,
+      loaded,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -1,12 +1,12 @@
 "use client";
 
 import clsx from "clsx";
-import { ChevronDown, LogOut, Menu, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, LogOut, Menu, RotateCcw, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
-import { NAV } from "@/lib/nav";
+import { CURRENT_STAGE, NAV } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 
 function isActive(pathname: string, href: string) {
@@ -43,7 +43,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
                   >
                     <Icon className="size-4 shrink-0" aria-hidden />
                     <span className="flex-1 truncate">{item.label}</span>
-                    {item.stage > 1 && (
+                    {item.stage > CURRENT_STAGE && (
                       <span className="rounded px-1.5 py-px text-[10px] text-white/45 ring-1 ring-white/15">Soon</span>
                     )}
                   </Link>
@@ -164,6 +164,23 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   );
 }
 
+function Toast() {
+  const { toast } = useStore();
+  return (
+    <div
+      aria-live="polite"
+      role="status"
+      className="pointer-events-none fixed top-20 right-4 left-4 z-[60] flex justify-end"
+    >
+      {toast && (
+        <div className="flex items-center gap-2 rounded-xl bg-navy px-4 py-3 text-sm text-white shadow-lg">
+          <CheckCircle2 className="size-4 text-cyan" aria-hidden /> {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -191,6 +208,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       <Topbar onMenu={() => setMobileOpen(true)} />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <Toast />
     </div>
   );
 }

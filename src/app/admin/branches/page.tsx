@@ -20,8 +20,7 @@ export default function BranchesPage() {
   const q = query.trim().toLowerCase();
   const visible = branches.filter(
     (b) =>
-      (showInactive || b.active) &&
-      (!q || [b.name, b.code, b.city, b.state].some((v) => v.toLowerCase().includes(q))),
+      (showInactive || b.active) && (!q || [b.name, b.code, b.city, b.state].some((v) => v.toLowerCase().includes(q))),
   );
 
   return (
@@ -38,7 +37,10 @@ export default function BranchesPage() {
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+            aria-hidden
+          />
           <Input
             aria-label="Search branches"
             placeholder="Search name, code or city"
@@ -118,7 +120,11 @@ export default function BranchesPage() {
         </ul>
       )}
 
-      <BranchFormDialog open={adding} onClose={() => setAdding(false)} onSaved={(b) => router.push(`/admin/branches/${b.id}`)} />
+      <BranchFormDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSaved={(b) => router.push(`/admin/branches/${b.id}`)}
+      />
     </>
   );
 }

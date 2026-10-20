@@ -40,7 +40,10 @@ export function BranchDetail() {
 
   return (
     <>
-      <Link href="/admin/branches" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground">
+      <Link
+        href="/admin/branches"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+      >
         <ArrowLeft className="size-4" /> All branches
       </Link>
 
@@ -101,7 +104,9 @@ export function BranchDetail() {
             <h2 id="sp-heading" className="font-display text-lg font-semibold">
               Service points
             </h2>
-            <p className="text-sm text-muted">Desks and rooms where patients wait. Closed points stop receiving patients.</p>
+            <p className="text-sm text-muted">
+              Desks and rooms where patients wait. Closed points stop receiving patients.
+            </p>
           </div>
           <Button onClick={() => setPointDialog({})} disabled={!branch.active}>
             <Plus className="size-4" /> Add service point
@@ -117,7 +122,9 @@ export function BranchDetail() {
                 aria-pressed={typeFilter === t}
                 className={clsx(
                   "rounded-full px-3 py-1 text-sm transition-colors",
-                  typeFilter === t ? "bg-navy text-white" : "bg-surface text-muted ring-1 ring-line hover:text-foreground",
+                  typeFilter === t
+                    ? "bg-navy text-white"
+                    : "bg-surface text-muted ring-1 ring-line hover:text-foreground",
                 )}
               >
                 {t}
@@ -167,7 +174,12 @@ export function BranchDetail() {
                       />
                     </td>
                     <td className="px-2 py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setPointDialog({ point: p })} aria-label={`Edit ${p.name}`}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPointDialog({ point: p })}
+                        aria-label={`Edit ${p.name}`}
+                      >
                         <Pencil className="size-3.5" />
                       </Button>
                     </td>
@@ -205,8 +217,8 @@ export function BranchDetail() {
         }
       >
         <p className="text-sm text-muted">
-          Staff at this branch won&apos;t be able to register or bill patients. Nothing is deleted: its patients, bills and
-          history stay, and you can reactivate it any time.
+          Staff at this branch won&apos;t be able to register or bill patients. Nothing is deleted: its patients, bills
+          and history stay, and you can reactivate it any time.
         </p>
       </Dialog>
     </>

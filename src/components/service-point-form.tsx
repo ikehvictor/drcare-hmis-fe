@@ -16,7 +16,9 @@ export function ServicePointDialog({
 }) {
   const { addServicePoint, updateServicePoint } = useStore();
   const [form, setForm] = useState<ServicePointInput>(
-    point ? { name: point.name, type: point.type, location: point.location } : { name: "", type: "Records", location: "" },
+    point
+      ? { name: point.name, type: point.type, location: point.location }
+      : { name: "", type: "Records", location: "" },
   );
   const [error, setError] = useState<string>();
 
@@ -49,12 +51,21 @@ export function ServicePointDialog({
       <form id="sp-form" onSubmit={submit} className="space-y-4" noValidate>
         <Field label="Name" error={error}>
           {(id) => (
-            <Input id={id} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. OPD Room 3" />
+            <Input
+              id={id}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. OPD Room 3"
+            />
           )}
         </Field>
         <Field label="Type">
           {(id) => (
-            <Select id={id} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ServicePointType })}>
+            <Select
+              id={id}
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value as ServicePointType })}
+            >
               {SERVICE_POINT_TYPES.map((t) => (
                 <option key={t}>{t}</option>
               ))}

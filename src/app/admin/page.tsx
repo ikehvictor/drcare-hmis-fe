@@ -8,16 +8,33 @@ import { useStore } from "@/lib/store";
 import { RelativeTime } from "@/components/relative-time";
 
 export default function OverviewPage() {
-  const { tenant, branches, activity } = useStore();
+  const { tenant, branches, users, roles, activity } = useStore();
+  const seats = users.filter((u) => u.status !== "suspended").length;
+  const staffRolesInUse = roles.some((r) => !r.locked && users.some((u) => u.roleIds.includes(r.id)));
   const activeBranches = branches.filter((b) => b.active);
   const points = activeBranches.flatMap((b) => b.servicePoints);
   const openPoints = points.filter((p) => p.active);
 
   const stats = [
-    { label: "Active branches", value: activeBranches.length, sub: `of ${tenant.branchLimit} on your plan`, icon: Building2 },
-    { label: "Service points open", value: openPoints.length, sub: `${points.length - openPoints.length} closed`, icon: DoorOpen },
-    { label: "Staff accounts", value: 1, sub: `of ${tenant.userLimit} on your plan`, icon: Users },
-    { label: "Modules available", value: tenant.entitledModules.length, sub: tenant.entitledModules.join(" · "), icon: Puzzle },
+    {
+      label: "Active branches",
+      value: activeBranches.length,
+      sub: `of ${tenant.branchLimit} on your plan`,
+      icon: Building2,
+    },
+    {
+      label: "Service points open",
+      value: openPoints.length,
+      sub: `${points.length - openPoints.length} closed`,
+      icon: DoorOpen,
+    },
+    { label: "Staff accounts", value: seats, sub: `of ${tenant.userLimit} on your plan`, icon: Users },
+    {
+      label: "Modules available",
+      value: tenant.entitledModules.length,
+      sub: tenant.entitledModules.join(" · "),
+      icon: Puzzle,
+    },
   ];
 
   const steps = [
@@ -27,8 +44,8 @@ export default function OverviewPage() {
       done: activeBranches.length > 0 && activeBranches.every((b) => b.servicePoints.some((p) => p.active)),
       href: "/admin/branches",
     },
-    { label: "Invite your staff", done: false, href: "/admin/users" },
-    { label: "Create roles and assign permissions", done: false, href: "/admin/roles" },
+    { label: "Invite your staff", done: users.length > 1, href: "/admin/users" },
+    { label: "Create roles and assign permissions", done: staffRolesInUse, href: "/admin/roles" },
     { label: "Switch on Medical Records and Cash Point", done: false, href: "/admin/modules" },
     { label: "Choose your patient number format", done: false, href: "/admin/numbering" },
   ];
@@ -94,7 +111,9 @@ export default function OverviewPage() {
                   <p>
                     <span className="font-medium">{a.actor}</span> {a.action}
                   </p>
-                  <p className="text-xs text-muted"><RelativeTime iso={a.at} /></p>
+                  <p className="text-xs text-muted">
+                    <RelativeTime iso={a.at} />
+                  </p>
                 </div>
               </li>
             ))}

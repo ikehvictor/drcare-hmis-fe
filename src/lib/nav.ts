@@ -11,11 +11,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+/** Sections up to this stage are built; later ones show a placeholder. */
+export const CURRENT_STAGE = 2;
+
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Stage the section ships in. Stage 1 is built now; later ones show a placeholder. */
+  /** Stage the section ships in. */
   stage: number;
 }
 

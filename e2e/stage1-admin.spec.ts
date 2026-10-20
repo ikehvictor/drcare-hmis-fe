@@ -18,7 +18,7 @@ test("sign-in screen leads to the admin overview", async ({ page }) => {
   await page.getByRole("link", { name: "Continue as Hospital Super Admin" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Setup checklist" })).toBeVisible();
-  await expect(page.getByText("2 of 6 done")).toBeVisible();
+  await expect(page.getByText("4 of 6 done")).toBeVisible();
 });
 
 test("navigation reaches branches and shows later stages as coming soon", async ({ page }) => {
@@ -27,9 +27,9 @@ test("navigation reaches branches and shows later stages as coming soon", async 
   await expect(page.getByRole("heading", { name: "Branches & service points", level: 1 })).toBeVisible();
 
   await openNav(page);
-  await page.getByRole("link", { name: /Users/ }).click();
-  await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
-  await expect(page.getByText("planned for stage 2")).toBeVisible();
+  await page.getByRole("link", { name: /Modules/ }).click();
+  await expect(page.getByRole("heading", { name: "Modules" })).toBeVisible();
+  await expect(page.getByText("planned for stage 3")).toBeVisible();
 });
 
 test("search filters the branch list", async ({ page }) => {

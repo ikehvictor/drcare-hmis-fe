@@ -55,3 +55,29 @@ export interface ActivityItem {
   action: string;
   at: string;
 }
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  /** The Hospital Super Admin role can't be edited or deleted, so a hospital can never lock itself out. */
+  locked?: boolean;
+  createdAt: string;
+}
+
+export type UserStatus = "invited" | "active" | "suspended";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  jobTitle: string;
+  roleIds: string[];
+  /** "all" or a list of branch ids the user may work in. */
+  branchScope: "all" | string[];
+  status: UserStatus;
+  lastActiveAt?: string;
+  createdAt: string;
+}
