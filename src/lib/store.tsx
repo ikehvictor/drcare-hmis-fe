@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { AuditEntry, Branch, ModuleState, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
 import { diff, listDiff, show } from "./audit";
-import { branchScopeLabel } from "./access";
+import { branchScopeLabel, effectivePermissions } from "./access";
 import { permissionByKey } from "./permissions";
 import {
   CURRENT_USER_ID,
@@ -22,10 +22,11 @@ import { moduleById, type SettingValue } from "./modules";
 import type { NumberingConfig } from "./numbering";
 import { CORE_FIELDS, type PatientCategory, type RegistrationForm } from "./forms";
 import { timeoutLabel, type HospitalSettings } from "./settings";
+import { formatDob, fullName, issueNumber, type Patient } from "./patients";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v5";
+const STORAGE_KEY = "drcare-admin-demo-v6";
 
 interface State {
   tenant: Tenant;
@@ -41,6 +42,12 @@ interface State {
   settings: HospitalSettings;
   /** Append-only audit log, newest first. */
   audit: AuditEntry[];
+  /** Registered patients, newest first. Records are never deleted. */
+  patients: Patient[];
+  /** Next running number per counter; see counterKey in ./patients. */
+  patientCounters: Record<string, number>;
+  /** Who is signed in at the front desk and the branch they're working at. */
+  desk: { userId: string; branchId: string };
 }
 
 export type BranchInput = Pick<Branch, "name" | "code" | "address" | "city" | "state" | "phone" | "isMain">;
@@ -48,6 +55,15 @@ export type ServicePointInput = Pick<ServicePoint, "name" | "type" | "location">
 export type RoleInput = Pick<Role, "name" | "description" | "permissions">;
 export type CategoryInput = Pick<PatientCategory, "code" | "name" | "formId">;
 export type UserInput = Pick<User, "name" | "email" | "phone" | "jobTitle" | "roleIds" | "branchScope">;
+export type PatientInput = Omit<
+  Patient,
+  "id" | "number" | "categoryName" | "branchName" | "registeredAt" | "registeredBy"
+> & {
+  /** The desk user registering the patient. */
+  clerkId: string;
+  /** Numbers of possible matches the clerk saw and decided were different people. */
+  notMatching?: string[];
+};
 
 interface Store extends State {
   addBranch: (input: BranchInput) => Branch;
@@ -80,6 +96,11 @@ interface Store extends State {
   saveSettings: (patch: Partial<HospitalSettings>, what: string) => void;
   /** Records that the audit log was exported; exporting is itself audited. */
   exportedAudit: (count: number, filtered: boolean) => void;
+  /** Issues the next patient number, saves the record and logs it. Returns the new patient's id. */
+  registerPatient: (input: PatientInput) => string;
+  setDesk: (desk: { userId: string; branchId: string }) => void;
+  /** Active users who may register patients right now. */
+  deskUsers: User[];
   currentUserId: string;
   /** False until saved demo data has been read from the browser. */
   ready: boolean;
@@ -102,12 +123,16 @@ const initialState = (): State => ({
   categories: seedCategories,
   settings: seedSettings,
   audit: seedAudit,
+  patients: [],
+  patientCounters: {},
+  desk: { userId: "usr_tunde", branchId: "br_main" },
 });
 
 const newId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 const ME = { actor: "Ada Okafor", actorRole: "Hospital Super Admin" };
 const VIA = "Web admin · this browser";
 const HOSPITAL_WIDE = "Hospital-wide";
+const DESK_VIA = "Front desk · this browser";
 
 type LogInput = Omit<AuditEntry, "id" | "at" | "actor" | "actorRole" | "via" | "where"> & { where?: string };
 
@@ -732,7 +757,100 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const registerPatient = useCallback((input: PatientInput) => {
+    const id = newId("pat");
+    const { clerkId, notMatching, ...rest } = input;
+    setState((s) => {
+      const branch = s.branches.find((b) => b.id === input.branchId);
+      const category = s.categories.find((c) => c.id === input.categoryId);
+      const clerk = s.users.find((u) => u.id === clerkId);
+      if (!branch || !category || !clerk || s.patients.some((p) => p.id === id)) return s;
+      const now = new Date();
+      const { number, counters } = issueNumber(
+        s.numbering,
+        s.patientCounters,
+        new Set(s.patients.map((p) => p.number.toUpperCase())),
+        {
+          branchId: branch.id,
+          branchCode: branch.code,
+          categoryId: category.id,
+          categoryCode: category.code,
+          date: now,
+        },
+      );
+
+      const patient: Patient = {
+        ...rest,
+        id,
+        number,
+        categoryName: category.name,
+        branchName: branch.name,
+        registeredAt: now.toISOString(),
+        registeredBy: clerk.name,
+      };
+      const name = fullName(patient);
+      return {
+        ...s,
+        patients: [patient, ...s.patients],
+        patientCounters: counters,
+        audit: [
+          {
+            id: newId("aud"),
+            at: patient.registeredAt,
+            actor: clerk.name,
+            actorRole: clerk.roleIds.map((r) => roleName(s, r)).join(", "),
+            via: DESK_VIA,
+            action: `registered patient ${name} as ${number}`,
+            category: "Patients",
+            target: { type: "patient", id, name: `${name} (${number})` },
+            where: branch.name,
+            sensitive: true,
+            // Identity only: the rest of the answers stay on the record, not in the log.
+            changes: [
+              { field: "Patient number", before: "—", after: number },
+              { field: "Category", before: "—", after: `${category.name} (${category.code})` },
+              { field: "Name", before: "—", after: name },
+              { field: "Sex", before: "—", after: show(patient.sex) },
+              {
+                field: "Date of birth",
+                before: "—",
+                after: patient.dobEstimated
+                  ? `Estimated, born ${patient.dateOfBirth.slice(0, 4)}`
+                  : formatDob(patient.dateOfBirth),
+              },
+              { field: "Phone", before: "—", after: show(patient.phone) },
+              ...(patient.legacyNumber ? [{ field: "Old card number", before: "—", after: patient.legacyNumber }] : []),
+              ...(notMatching?.length
+                ? [
+                    {
+                      field: "Possible duplicate",
+                      before: notMatching.join(", "),
+                      after: "Checked: a different person",
+                    },
+                  ]
+                : []),
+            ],
+          },
+          ...s.audit,
+        ],
+      };
+    });
+    return id;
+  }, []);
+
+  const setDesk = useCallback((desk: { userId: string; branchId: string }) => setState((s) => ({ ...s, desk })), []);
+
   const resetDemo = useCallback(() => setState(initialState()), []);
+
+  const deskUsers = useMemo(
+    () =>
+      state.users.filter(
+        (u) =>
+          u.status === "active" &&
+          effectivePermissions(u, state.roles, (id) => !!state.modules[id]?.enabled).has("patients.register"),
+      ),
+    [state.users, state.roles, state.modules],
+  );
 
   const value = useMemo<Store>(
     () => ({
@@ -763,6 +881,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setCategoryActive,
       saveSettings,
       exportedAudit,
+      registerPatient,
+      setDesk,
+      deskUsers,
       currentUserId: CURRENT_USER_ID,
       ready: loaded,
       toast,
@@ -796,6 +917,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setCategoryActive,
       saveSettings,
       exportedAudit,
+      registerPatient,
+      setDesk,
+      deskUsers,
       toast,
       notify,
       resetDemo,

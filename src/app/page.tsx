@@ -60,6 +60,12 @@ export default function SignInPage() {
             >
               Continue as Hospital Super Admin
             </Link>
+            <Link
+              href="/desk"
+              className="flex h-10 w-full items-center justify-center rounded-lg border border-line bg-surface text-sm font-medium hover:bg-background"
+            >
+              Continue at the front desk
+            </Link>
           </form>
           <p className="mt-6 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
             Front-end preview: sign-in is not connected yet, so any details work.

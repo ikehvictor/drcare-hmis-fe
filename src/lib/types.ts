@@ -62,6 +62,7 @@ export const AUDIT_CATEGORIES = [
   "Numbering",
   "Forms",
   "Settings",
+  "Patients",
   "Sign-in",
   "Support",
   "Audit",
@@ -75,7 +76,7 @@ export interface AuditChange {
 }
 
 export interface AuditTarget {
-  type: "branch" | "user" | "role" | "module" | "form" | "category" | "numbering" | "settings";
+  type: "branch" | "user" | "role" | "module" | "form" | "category" | "numbering" | "settings" | "patient";
   id: string;
   name: string;
 }
