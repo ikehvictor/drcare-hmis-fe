@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Dialog, Field, Input, SaveBar } from "@/components/ui";
 import { initials, usersWithRole } from "@/lib/access";
-import { PERMISSION_CATALOGUE, type PermissionGroup } from "@/lib/permissions";
+import { permissionCatalogue, type PermissionGroup } from "@/lib/permissions";
 import { useStore } from "@/lib/store";
 import type { Role } from "@/lib/types";
 
@@ -68,11 +68,14 @@ function GroupCheckbox({
 }
 
 function RoleEditor({ role }: { role: Role }) {
-  const { roles, users, updateRole, deleteRole, notify, isModuleOn } = useStore();
+  const { roles, users, customFunctions, updateRole, deleteRole, notify, isModuleOn } = useStore();
+  const catalogue = permissionCatalogue(customFunctions);
   const router = useRouter();
   const [name, setName] = useState(role.name);
   const [description, setDescription] = useState(role.description);
-  const [selected, setSelected] = useState(() => new Set(role.permissions));
+  // The locked Super Admin role has everything, including the hospital's own functions.
+  const allowed = role.locked ? catalogue.flatMap((g) => g.permissions.map((p) => p.key)) : role.permissions;
+  const [selected, setSelected] = useState(() => new Set(allowed));
   const [error, setError] = useState<string>();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -81,8 +84,8 @@ function RoleEditor({ role }: { role: Role }) {
   const dirty =
     name !== role.name ||
     description !== role.description ||
-    selected.size !== role.permissions.length ||
-    role.permissions.some((p) => !selected.has(p));
+    selected.size !== allowed.length ||
+    allowed.some((p) => !selected.has(p));
 
   const toggle = (key: string, on: boolean) =>
     setSelected((s) => {
@@ -105,7 +108,7 @@ function RoleEditor({ role }: { role: Role }) {
   const discard = () => {
     setName(role.name);
     setDescription(role.description);
-    setSelected(new Set(role.permissions));
+    setSelected(new Set(allowed));
     setError(undefined);
   };
 
@@ -116,9 +119,7 @@ function RoleEditor({ role }: { role: Role }) {
       return setError(`There's already a role called ${trimmed}.`);
     setError(undefined);
     // Keep the catalogue order so saved roles read the same way everywhere.
-    const permissions = PERMISSION_CATALOGUE.flatMap((g) => g.permissions.map((p) => p.key)).filter((k) =>
-      selected.has(k),
-    );
+    const permissions = catalogue.flatMap((g) => g.permissions.map((p) => p.key)).filter((k) => selected.has(k));
     updateRole(role.id, { name: trimmed, description: description.trim(), permissions });
     notify(`${trimmed} saved`);
   };
@@ -160,7 +161,7 @@ function RoleEditor({ role }: { role: Role }) {
             </Field>
           </Card>
 
-          {PERMISSION_CATALOGUE.map((group) => (
+          {catalogue.map((group) => (
             <Card key={group.module} className="overflow-hidden">
               <section aria-labelledby={`grp-${group.module.toLowerCase().replace(/\s+/g, "-")}`}>
                 <div className="flex items-center justify-between gap-3 border-b border-line bg-background/60 px-5 py-3">
@@ -172,7 +173,14 @@ function RoleEditor({ role }: { role: Role }) {
                       {group.module}
                     </h2>
                     <p className="text-xs text-muted">
-                      {isModuleOn(group.moduleId) ? (
+                      {group.permissions[0]?.key.startsWith("custom.") ? (
+                        <>
+                          {group.description}{" "}
+                          <Link href="/admin/roles#custom-fns" className="underline">
+                            Manage them
+                          </Link>
+                        </>
+                      ) : isModuleOn(group.moduleId) ? (
                         group.description
                       ) : (
                         <>

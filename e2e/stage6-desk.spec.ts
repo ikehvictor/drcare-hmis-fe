@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Seed: Medical Records off, numbering not saved, no patients. Desk user Tunde Bakare (Records Officer, Main Campus);
 // Ada Okafor (Super Admin) can work at both branches. Categories GEN, CHD, ANC, COR.
-const KEY = "drcare-admin-demo-v6";
+const KEY = "drcare-admin-demo-v7";
 const YY = String(new Date().getFullYear()).slice(-2);
 
 test.beforeEach(async ({ page }) => {
@@ -115,8 +115,8 @@ test.describe("front desk access", () => {
     await setup(page);
     await expect(page.getByLabel("Working at").getByRole("option")).toHaveText(["Main Campus"]);
     await page.getByRole("button", { name: "Signed in as Tunde Bakare" }).click();
-    // Musa is only invited and Ngozi is a cashier, so neither can register patients.
-    await expect(page.getByRole("menuitemradio")).toHaveText(["Ada Okafor", "Tunde Bakare"]);
+    // Ngozi is a cashier, so she can't register patients.
+    await expect(page.getByRole("menuitemradio")).toHaveText(["Ada Okafor", "Tunde Bakare", "Musa Ibrahim"]);
     await page.getByRole("menuitemradio", { name: "Ada Okafor" }).click();
     await expect(page.getByLabel("Working at").getByRole("option")).toHaveText(["Main Campus", "Lekki Annex Clinic"]);
   });

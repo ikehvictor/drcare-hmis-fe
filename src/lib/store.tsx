@@ -1,10 +1,21 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { AuditEntry, Branch, ModuleState, Role, ServicePoint, Tenant, User, UserStatus } from "./types";
+import type {
+  AuditEntry,
+  Branch,
+  CustomFunction,
+  ModuleState,
+  Role,
+  ServicePoint,
+  StaffCategory,
+  Tenant,
+  User,
+  UserStatus,
+} from "./types";
 import { diff, listDiff, show } from "./audit";
-import { branchScopeLabel, effectivePermissions } from "./access";
-import { permissionByKey } from "./permissions";
+import { branchScopeLabel, effectivePermissions, staffLabel } from "./access";
+import { CUSTOM_PREFIX, permissionByKey } from "./permissions";
 import {
   CURRENT_USER_ID,
   seedAudit,
@@ -15,6 +26,7 @@ import {
   seedNumbering,
   seedRoles,
   seedSettings,
+  seedStaffCategories,
   seedTenant,
   seedUsers,
 } from "./mock-data";
@@ -26,13 +38,16 @@ import { formatDob, fullName, issueNumber, type Patient } from "./patients";
 
 // Front-end only: state lives in memory and is mirrored to localStorage so the
 // demo survives a refresh. This is replaced by API calls once the backend exists.
-const STORAGE_KEY = "drcare-admin-demo-v6";
+const STORAGE_KEY = "drcare-admin-demo-v7";
 
 interface State {
   tenant: Tenant;
   branches: Branch[];
   roles: Role[];
   users: User[];
+  staffCategories: StaffCategory[];
+  /** Functions the hospital has named itself; see CustomFunction. */
+  customFunctions: CustomFunction[];
   modules: Record<string, ModuleState>;
   /** Modules the hospital has asked Dr. Care to add to its plan. */
   moduleRequests: string[];
@@ -54,7 +69,11 @@ export type BranchInput = Pick<Branch, "name" | "code" | "address" | "city" | "s
 export type ServicePointInput = Pick<ServicePoint, "name" | "type" | "location">;
 export type RoleInput = Pick<Role, "name" | "description" | "permissions">;
 export type CategoryInput = Pick<PatientCategory, "code" | "name" | "formId">;
-export type UserInput = Pick<User, "name" | "email" | "phone" | "jobTitle" | "roleIds" | "branchScope">;
+export type UserInput = Pick<
+  User,
+  "name" | "email" | "phone" | "jobTitle" | "staffCategoryId" | "specialty" | "roleIds" | "branchScope"
+>;
+export type StaffCategoryInput = Omit<StaffCategory, "id">;
 export type PatientInput = Omit<
   Patient,
   "id" | "number" | "categoryName" | "branchName" | "registeredAt" | "registeredBy"
@@ -75,10 +94,20 @@ interface Store extends State {
   addRole: (input: RoleInput) => Role;
   updateRole: (id: string, input: RoleInput) => void;
   deleteRole: (id: string) => void;
-  inviteUser: (input: UserInput) => User;
+  /** Creates an active account with a password the admin chose; the password itself is never stored. */
+  createUser: (input: UserInput, mustChangePassword: boolean) => User;
   updateUser: (id: string, input: UserInput) => void;
+  setUserPassword: (id: string, mustChangePassword: boolean) => void;
+  /** Functions given to or taken from one person, on top of their roles. */
+  setUserAccess: (id: string, extra: string[], removed: string[]) => void;
+  addStaffCategory: (input: StaffCategoryInput) => void;
+  updateStaffCategory: (id: string, input: StaffCategoryInput) => void;
+  /** Only removes a category nobody is in. */
+  deleteStaffCategory: (id: string) => void;
+  addCustomFunction: (label: string, description: string) => CustomFunction;
+  /** Only removes a function no role or person has. */
+  deleteCustomFunction: (key: string) => void;
   setUserStatus: (id: string, status: UserStatus) => void;
-  resendInvite: (id: string) => void;
   /** Switches several modules at once, so a module and its dependencies change together. */
   setModulesEnabled: (ids: string[], enabled: boolean) => void;
   updateModuleSettings: (id: string, settings: Record<string, SettingValue>) => void;
@@ -116,6 +145,8 @@ const initialState = (): State => ({
   branches: seedBranches,
   roles: seedRoles,
   users: seedUsers,
+  staffCategories: seedStaffCategories,
+  customFunctions: [],
   modules: seedModules,
   moduleRequests: [],
   numbering: seedNumbering,
@@ -149,12 +180,20 @@ const POINT_LABELS = { name: "Name", type: "Type", location: "Location" } as con
 const CATEGORY_LABELS = { name: "Name", code: "Code", formId: "Form" } as const;
 
 const permissionLabel = (key: string) => permissionByKey(key)?.label ?? key;
+/** Labels for built-in functions and the hospital's own. */
+const fnLabel = (s: State) => (key: string) =>
+  permissionByKey(key)?.label ?? s.customFunctions.find((c) => c.key === key)?.label ?? key;
 const formName = (s: State, id: string) => s.forms.find((f) => f.id === id)?.name ?? id;
 const roleName = (s: State, id: string) => s.roles.find((r) => r.id === id)?.name ?? id;
 
 function userChanges(s: State, before: User | undefined, after: UserInput) {
   return [
     ...diff(before, after, { name: "Name", email: "Email", phone: "Phone", jobTitle: "Job title" }),
+    ...diff(
+      before && { staff: staffLabel(before, s.staffCategories) },
+      { staff: staffLabel(after, s.staffCategories) },
+      { staff: "Staff category" },
+    ),
     ...(before
       ? listDiff(
           "Roles",
@@ -228,6 +267,16 @@ function settingsChanges(s: State, before: HospitalSettings, after: HospitalSett
     ),
   ];
 }
+
+const categoryChanges = (s: State, before: StaffCategoryInput | undefined, after: StaffCategoryInput) => [
+  ...diff(before, after, { name: "Name" }),
+  ...listDiff("Specialties", before?.specialties ?? [], after.specialties),
+  ...listDiff(
+    "Suggested roles",
+    (before?.defaultRoleIds ?? []).map((r) => roleName(s, r)),
+    after.defaultRoleIds.map((r) => roleName(s, r)),
+  ),
+];
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>(initialState);
@@ -401,7 +450,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         action: `created role ${role.name}`,
         category: "Roles",
         target: { type: "role", id: role.id, name: role.name },
-        changes: listDiff("Permissions", [], role.permissions.map(permissionLabel)),
+        changes: listDiff("Permissions", [], role.permissions.map(fnLabel(s))),
         sensitive: true,
       }),
     }));
@@ -421,7 +470,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           target: { type: "role", id, name: input.name },
           changes: [
             ...diff(before, input, { name: "Name", description: "Description" }),
-            ...listDiff("Permissions", before.permissions.map(permissionLabel), input.permissions.map(permissionLabel)),
+            ...listDiff("Permissions", before.permissions.map(fnLabel(s)), input.permissions.map(fnLabel(s))),
           ],
           sensitive: true,
         }),
@@ -437,27 +486,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         roles: s.roles.filter((r) => r.id !== id),
+        staffCategories: s.staffCategories.map((c) => ({
+          ...c,
+          defaultRoleIds: c.defaultRoleIds.filter((r) => r !== id),
+        })),
         audit: log(s, {
           action: `deleted role ${role.name}`,
           category: "Roles",
           target: { type: "role", id, name: role.name },
-          changes: listDiff("Permissions", role.permissions.map(permissionLabel), []),
+          changes: listDiff("Permissions", role.permissions.map(fnLabel(s)), []),
           sensitive: true,
         }),
       };
     });
   }, []);
 
-  const inviteUser = useCallback((input: UserInput) => {
-    const user: User = { ...input, id: newId("usr"), status: "invited", createdAt: new Date().toISOString() };
+  const createUser = useCallback((input: UserInput, mustChangePassword: boolean) => {
+    const now = new Date().toISOString();
+    const user: User = {
+      ...input,
+      id: newId("usr"),
+      status: "active",
+      extraPermissions: [],
+      removedPermissions: [],
+      mustChangePassword,
+      passwordSetAt: now,
+      createdAt: now,
+    };
     setState((s) => ({
       ...s,
       users: [...s.users, user],
       audit: log(s, {
-        action: `invited ${user.name} (${user.email})`,
+        action: `created an account for ${user.name} (${user.email})`,
         category: "Users",
         target: { type: "user", id: user.id, name: user.name },
-        changes: userChanges(s, undefined, user),
+        changes: [
+          ...userChanges(s, undefined, user),
+          {
+            field: "Password",
+            before: "—",
+            after: mustChangePassword ? "Set by admin · must change at first sign-in" : "Set by admin",
+          },
+        ],
         sensitive: true,
       }),
     }));
@@ -500,16 +570,129 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const resendInvite = useCallback((id: string) => {
+  const setUserPassword = useCallback((id: string, mustChangePassword: boolean) => {
     setState((s) => {
       const u = s.users.find((x) => x.id === id);
+      if (!u) return s;
       return {
         ...s,
+        users: s.users.map((x) =>
+          x.id === id ? { ...x, mustChangePassword, passwordSetAt: new Date().toISOString() } : x,
+        ),
         audit: log(s, {
-          action: `resent the invitation to ${u?.name ?? "a user"}`,
+          action: `set a new password for ${u.name}`,
           category: "Users",
-          target: u && { type: "user", id, name: u.name },
+          target: { type: "user", id, name: u.name },
+          changes: [
+            {
+              field: "Password",
+              before: "Previous password",
+              after: mustChangePassword ? "Set by admin · must change at next sign-in" : "Set by admin",
+            },
+          ],
+          sensitive: true,
         }),
+      };
+    });
+  }, []);
+
+  const setUserAccess = useCallback((id: string, extra: string[], removed: string[]) => {
+    // Nobody changes their own access, so an admin can't lock themselves out.
+    if (id === CURRENT_USER_ID) return;
+    setState((s) => {
+      const u = s.users.find((x) => x.id === id);
+      if (!u) return s;
+      const label = fnLabel(s);
+      return {
+        ...s,
+        users: s.users.map((x) => (x.id === id ? { ...x, extraPermissions: extra, removedPermissions: removed } : x)),
+        audit: log(s, {
+          action: `changed what ${u.name} can do`,
+          category: "Users",
+          target: { type: "user", id, name: u.name },
+          changes: [
+            ...listDiff("Also allowed", u.extraPermissions.map(label), extra.map(label)),
+            ...listDiff("Not allowed", u.removedPermissions.map(label), removed.map(label)),
+          ],
+          sensitive: true,
+        }),
+      };
+    });
+  }, []);
+
+  const addStaffCategory = useCallback((input: StaffCategoryInput) => {
+    const id = newId("stc");
+    setState((s) => ({
+      ...s,
+      staffCategories: [...s.staffCategories, { ...input, id }],
+      audit: log(s, {
+        action: `added staff category ${input.name}`,
+        category: "Staff",
+        target: { type: "staff-category", id, name: input.name },
+        changes: categoryChanges(s, undefined, input),
+      }),
+    }));
+  }, []);
+
+  const updateStaffCategory = useCallback((id: string, input: StaffCategoryInput) => {
+    setState((s) => {
+      const before = s.staffCategories.find((c) => c.id === id);
+      if (!before) return s;
+      return {
+        ...s,
+        staffCategories: s.staffCategories.map((c) => (c.id === id ? { ...c, ...input } : c)),
+        // People keep a specialty that was removed until someone edits them, so nothing is lost silently.
+        audit: log(s, {
+          action: `updated staff category ${input.name}`,
+          category: "Staff",
+          target: { type: "staff-category", id, name: input.name },
+          changes: categoryChanges(s, before, input),
+        }),
+      };
+    });
+  }, []);
+
+  const deleteStaffCategory = useCallback((id: string) => {
+    setState((s) => {
+      const c = s.staffCategories.find((x) => x.id === id);
+      if (!c || s.users.some((u) => u.staffCategoryId === id)) return s;
+      return {
+        ...s,
+        staffCategories: s.staffCategories.filter((x) => x.id !== id),
+        audit: log(s, {
+          action: `deleted staff category ${c.name}`,
+          category: "Staff",
+          target: { type: "staff-category", id, name: c.name },
+        }),
+      };
+    });
+  }, []);
+
+  const addCustomFunction = useCallback((label: string, description: string) => {
+    const fn: CustomFunction = { key: `${CUSTOM_PREFIX}${newId("fn")}`, label, description };
+    setState((s) => ({
+      ...s,
+      customFunctions: [...s.customFunctions, fn],
+      audit: log(s, {
+        action: `added the function “${label}”`,
+        category: "Roles",
+        changes: diff(undefined, fn, { label: "Function", description: "Description" }),
+      }),
+    }));
+    return fn;
+  }, []);
+
+  const deleteCustomFunction = useCallback((key: string) => {
+    setState((s) => {
+      const fn = s.customFunctions.find((c) => c.key === key);
+      const used =
+        s.roles.some((r) => r.permissions.includes(key)) ||
+        s.users.some((u) => u.extraPermissions.includes(key) || u.removedPermissions.includes(key));
+      if (!fn || used) return s;
+      return {
+        ...s,
+        customFunctions: s.customFunctions.filter((c) => c.key !== key),
+        audit: log(s, { action: `deleted the function “${fn.label}”`, category: "Roles" }),
       };
     });
   }, []);
@@ -864,10 +1047,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRole,
       updateRole,
       deleteRole,
-      inviteUser,
+      createUser,
       updateUser,
+      setUserPassword,
+      setUserAccess,
+      addStaffCategory,
+      updateStaffCategory,
+      deleteStaffCategory,
+      addCustomFunction,
+      deleteCustomFunction,
       setUserStatus,
-      resendInvite,
       setModulesEnabled,
       updateModuleSettings,
       requestModule,
@@ -901,10 +1090,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRole,
       updateRole,
       deleteRole,
-      inviteUser,
+      createUser,
       updateUser,
+      setUserPassword,
+      setUserAccess,
+      addStaffCategory,
+      updateStaffCategory,
+      deleteStaffCategory,
+      addCustomFunction,
+      deleteCustomFunction,
       setUserStatus,
-      resendInvite,
       setModulesEnabled,
       updateModuleSettings,
       requestModule,

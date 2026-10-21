@@ -7,15 +7,16 @@ import { RelativeTime } from "@/components/relative-time";
 import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui";
 import { UserFormDialog } from "@/components/user-form";
 import { UserStatusBadge } from "@/components/user-status";
-import { branchScopeLabel, initials } from "@/lib/access";
+import { branchScopeLabel, initials, staffLabel } from "@/lib/access";
 import { useStore } from "@/lib/store";
 
 export default function UsersPage() {
-  const { tenant, users, roles, branches, currentUserId } = useStore();
+  const { tenant, users, roles, branches, staffCategories, currentUserId } = useStore();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [inviting, setInviting] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [creating, setCreating] = useState(false);
 
   // Suspended accounts don't count towards the plan's user limit.
   const seats = users.filter((u) => u.status !== "suspended").length;
@@ -23,8 +24,9 @@ export default function UsersPage() {
   const q = query.trim().toLowerCase();
   const visible = users.filter(
     (u) =>
-      (!q || [u.name, u.email, u.jobTitle, u.phone].some((v) => v.toLowerCase().includes(q))) &&
+      (!q || [u.name, u.email, u.jobTitle, u.phone, u.specialty ?? ""].some((v) => v.toLowerCase().includes(q))) &&
       (!roleFilter || u.roleIds.includes(roleFilter)) &&
+      (!categoryFilter || u.staffCategoryId === categoryFilter) &&
       (!statusFilter || u.status === statusFilter),
   );
   const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "Unknown role";
@@ -35,8 +37,8 @@ export default function UsersPage() {
         title="Users"
         description="Everyone who signs in to Dr. Care at your hospital, what they can do, and where."
         actions={
-          <Button onClick={() => setInviting(true)} disabled={atLimit}>
-            <Plus className="size-4" /> Invite user
+          <Button onClick={() => setCreating(true)} disabled={atLimit}>
+            <Plus className="size-4" /> Create account
           </Button>
         }
       />
@@ -56,6 +58,19 @@ export default function UsersPage() {
           />
         </div>
         <div className="grid grid-cols-2 gap-3 md:flex">
+          <Select
+            aria-label="Filter by staff category"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="md:w-44"
+          >
+            <option value="">All categories</option>
+            {staffCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
           <Select
             aria-label="Filter by role"
             value={roleFilter}
@@ -77,7 +92,6 @@ export default function UsersPage() {
           >
             <option value="">Any status</option>
             <option value="active">Active</option>
-            <option value="invited">Invited</option>
             <option value="suspended">Suspended</option>
           </Select>
         </div>
@@ -118,7 +132,9 @@ export default function UsersPage() {
                           <span className="truncate">{u.name}</span>
                           {u.id === currentUserId && <Badge tone="brand">You</Badge>}
                         </span>
-                        <span className="block truncate text-xs text-muted">{u.email}</span>
+                        <span className="block truncate text-xs text-muted">
+                          {staffLabel(u, staffCategories) || u.email}
+                        </span>
                       </span>
                     </Link>
                   </td>
@@ -131,7 +147,14 @@ export default function UsersPage() {
                   </td>
                   <td className="hidden px-4 py-3 text-muted lg:table-cell">{branchScopeLabel(u, branches)}</td>
                   <td className="px-4 py-3">
-                    <UserStatusBadge status={u.status} />
+                    <div className="flex flex-wrap gap-1">
+                      <UserStatusBadge status={u.status} />
+                      {u.mustChangePassword && (
+                        <span className="hidden sm:inline">
+                          <Badge tone="warning">New password</Badge>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="hidden px-4 py-3 text-muted sm:table-cell">
                     {u.lastActiveAt ? <RelativeTime iso={u.lastActiveAt} /> : "Never signed in"}
@@ -143,7 +166,7 @@ export default function UsersPage() {
         </Card>
       )}
 
-      {inviting && <UserFormDialog onClose={() => setInviting(false)} />}
+      {creating && <UserFormDialog onClose={() => setCreating(false)} />}
     </>
   );
 }

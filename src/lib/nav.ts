@@ -8,6 +8,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Stethoscope,
   UserPlus,
   Users,
   type LucideIcon,
@@ -39,6 +40,7 @@ export const NAV: NavGroup[] = [
     label: "People & access",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Staff categories", href: "/admin/staff", icon: Stethoscope },
       { label: "Roles & permissions", href: "/admin/roles", icon: ShieldCheck },
     ],
   },

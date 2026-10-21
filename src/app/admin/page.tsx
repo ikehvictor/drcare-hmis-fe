@@ -47,7 +47,7 @@ export default function OverviewPage() {
       done: activeBranches.length > 0 && activeBranches.every((b) => b.servicePoints.some((p) => p.active)),
       href: "/admin/branches",
     },
-    { label: "Invite your staff", done: users.length > 1, href: "/admin/users" },
+    { label: "Create staff accounts", done: users.length > 1, href: "/admin/users" },
     { label: "Create roles and assign permissions", done: staffRolesInUse, href: "/admin/roles" },
     {
       label: "Switch on Medical Records and Cash Point",

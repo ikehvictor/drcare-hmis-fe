@@ -138,7 +138,7 @@ test("export downloads CSV, and the export itself is logged", async ({ page }) =
   const csv = await readFile((await download.path())!, "utf8");
   const lines = csv.trim().split("\n");
   expect(lines[0]).toBe("Time (UTC),Who,Role,Category,What happened,Where,Via,Sensitive,Field,Before,After");
-  expect(csv).toContain("Ada Okafor invited Musa Ibrahim (musa.ibrahim@lakeside.example)");
+  expect(csv).toContain("Ada Okafor created an account for Musa Ibrahim (musa.ibrahim@lakeside.example)");
   expect(csv).not.toContain(",Sign-in,");
 
   await expect(page.getByRole("status")).toContainText("Exported 4 entries");
