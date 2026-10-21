@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Seed: 5 roles (Super Admin locked), 4 users (Ada = you, Musa invited), user limit 40.
+// Seed: 5 roles (Super Admin locked), 4 users (Ada = you; Musa must change the password the admin set), limit 40.
 test.beforeEach(async ({ page }) => {
   await page.goto("/admin");
   await page.evaluate(() => localStorage.clear());
@@ -99,42 +99,47 @@ test.describe("users", () => {
     await expect(usersTable(page).getByRole("row")).toHaveCount(2);
     await page.getByLabel("Search users").fill("");
 
-    await page.getByLabel("Filter by status").selectOption("invited");
-    await expect(usersTable(page).getByRole("row")).toHaveCount(2);
+    await page.getByLabel("Filter by staff category").selectOption({ label: "Records & front desk" });
+    await expect(usersTable(page).getByRole("row")).toHaveCount(3);
     await expect(usersTable(page)).toContainText("Musa Ibrahim");
 
-    await page.getByLabel("Filter by status").selectOption("");
+    await page.getByLabel("Filter by staff category").selectOption("");
     await page.getByLabel("Filter by role").selectOption({ label: "Records Officer" });
     await expect(usersTable(page).getByRole("row")).toHaveCount(3);
   });
 
-  test("invite a user with validation, roles and branch access", async ({ page }) => {
+  test("create an account with validation, roles and branch access", async ({ page }) => {
     await switchOnModules(page);
     await page.goto("/admin/users");
-    await page.getByRole("button", { name: "Invite user" }).click();
-    const dialog = page.getByRole("dialog", { name: "Invite a staff member" });
+    await page.getByRole("button", { name: "Create account" }).click();
+    const dialog = page.getByRole("dialog", { name: "Create a staff account" });
 
-    await dialog.getByRole("button", { name: "Send invitation" }).click();
+    await dialog.getByRole("button", { name: "Create account" }).click();
     await expect(dialog.getByText("Enter their full name.")).toBeVisible();
     await expect(dialog.getByText("Enter a valid email address.")).toBeVisible();
     await expect(dialog.getByText("Pick at least one role.")).toBeVisible();
+    await expect(dialog.getByText("Use at least 10 characters.")).toBeVisible();
 
     await dialog.getByLabel("Full name").fill("Chioma Nwosu");
     await dialog.getByLabel("Work email").fill("TUNDE.bakare@lakeside.example");
     await dialog.getByLabel("Job title").fill("Cashier");
     await dialog.getByRole("checkbox", { name: "Cashier", exact: true }).check();
     await dialog.getByRole("radio", { name: "Only specific branches" }).check();
-    await dialog.getByRole("button", { name: "Send invitation" }).click();
+    await dialog.getByLabel("Password", { exact: true }).fill("Lakeside2026");
+    await dialog.getByLabel("Type it again").fill("Lakeside2025");
+    await dialog.getByRole("button", { name: "Create account" }).click();
+    await expect(dialog.getByText("The two passwords don't match.")).toBeVisible();
     await expect(dialog.getByText("Someone already uses this email.")).toBeVisible();
     await expect(dialog.getByText("Pick at least one branch.")).toBeVisible();
 
     await dialog.getByLabel("Work email").fill("chioma.nwosu@lakeside.example");
     await dialog.getByRole("checkbox", { name: /Lekki Annex Clinic/ }).check();
-    await dialog.getByRole("button", { name: "Send invitation" }).click();
+    await dialog.getByLabel("Type it again").fill("Lakeside2026");
+    await dialog.getByRole("button", { name: "Create account" }).click();
 
-    await expect(page.getByRole("status")).toContainText("Invitation sent to chioma.nwosu@lakeside.example");
+    await expect(page.getByRole("status")).toContainText("Account created for Chioma Nwosu");
     const row = usersTable(page).getByRole("row", { name: /Chioma Nwosu/ });
-    await expect(row).toContainText("Invited");
+    await expect(row).toContainText("Active");
     await expect(page.getByTestId("user-usage")).toContainText("5 of 40 users");
 
     await row.getByRole("link").click();
@@ -154,8 +159,6 @@ test.describe("users", () => {
     await expect(page.getByText("combined from 2 roles")).toBeVisible();
     await expect(page.getByText("Register new patients — allowed")).toBeAttached();
     await expect(page.getByText("Receive payments — allowed")).toBeAttached();
-    await page.getByRole("button", { name: "Resend invitation" }).click();
-    await expect(page.getByRole("status")).toContainText("Invitation resent");
   });
 
   test("edit a user's roles", async ({ page }) => {

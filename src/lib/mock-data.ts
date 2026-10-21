@@ -3,7 +3,7 @@ import { defaultSettings, MODULES } from "./modules";
 import type { NumberingConfig } from "./numbering";
 import { ALL_PERMISSION_KEYS } from "./permissions";
 import type { HospitalSettings } from "./settings";
-import type { AuditEntry, Branch, ModuleState, Role, Tenant, User } from "./types";
+import type { AuditEntry, Branch, ModuleState, Role, StaffCategory, Tenant, User } from "./types";
 
 export const seedTenant: Tenant = {
   name: "Lakeside Specialist Hospital",
@@ -92,7 +92,7 @@ export const seedAudit: AuditEntry[] = [
     id: "aud_17",
     at: "2026-10-18T12:00:00.000Z",
     ...ADA,
-    action: "invited Musa Ibrahim (musa.ibrahim@lakeside.example)",
+    action: "created an account for Musa Ibrahim (musa.ibrahim@lakeside.example)",
     category: "Users",
     target: { type: "user", id: "usr_musa", name: "Musa Ibrahim" },
     changes: [
@@ -218,7 +218,7 @@ export const seedAudit: AuditEntry[] = [
     id: "aud_6",
     at: "2026-09-05T10:30:00.000Z",
     ...ADA,
-    action: "invited Ngozi Eze (ngozi.eze@lakeside.example)",
+    action: "created an account for Ngozi Eze (ngozi.eze@lakeside.example)",
     category: "Users",
     target: { type: "user", id: "usr_ngozi", name: "Ngozi Eze" },
     changes: [
@@ -233,7 +233,7 @@ export const seedAudit: AuditEntry[] = [
     id: "aud_5",
     at: "2026-09-05T10:00:00.000Z",
     ...ADA,
-    action: "invited Tunde Bakare (tunde.bakare@lakeside.example)",
+    action: "created an account for Tunde Bakare (tunde.bakare@lakeside.example)",
     category: "Users",
     target: { type: "user", id: "usr_tunde", name: "Tunde Bakare" },
     changes: [
@@ -349,9 +349,13 @@ export const seedUsers: User[] = [
     email: "ada.okafor@lakeside.example",
     phone: "+234 802 111 2233",
     jobTitle: "Hospital Administrator",
+    staffCategoryId: "stc_admin",
     roleIds: ["role_super"],
+    extraPermissions: [],
+    removedPermissions: [],
     branchScope: "all",
     status: "active",
+    mustChangePassword: false,
     lastActiveAt: "2026-10-20T08:30:00.000Z",
     createdAt: T0,
   },
@@ -361,9 +365,13 @@ export const seedUsers: User[] = [
     email: "tunde.bakare@lakeside.example",
     phone: "+234 803 444 5566",
     jobTitle: "Senior Records Officer",
+    staffCategoryId: "stc_records",
     roleIds: ["role_records"],
+    extraPermissions: [],
+    removedPermissions: [],
     branchScope: ["br_main"],
     status: "active",
+    mustChangePassword: false,
     lastActiveAt: "2026-10-19T16:05:00.000Z",
     createdAt: "2026-09-05T10:00:00.000Z",
   },
@@ -373,9 +381,13 @@ export const seedUsers: User[] = [
     email: "ngozi.eze@lakeside.example",
     phone: "+234 805 777 8899",
     jobTitle: "Head Cashier",
+    staffCategoryId: "stc_cash",
     roleIds: ["role_head_cashier"],
+    extraPermissions: [],
+    removedPermissions: [],
     branchScope: "all",
     status: "active",
+    mustChangePassword: false,
     lastActiveAt: "2026-10-20T07:50:00.000Z",
     createdAt: "2026-09-05T10:30:00.000Z",
   },
@@ -385,11 +397,39 @@ export const seedUsers: User[] = [
     email: "musa.ibrahim@lakeside.example",
     phone: "+234 806 222 3344",
     jobTitle: "Front Desk Officer",
+    staffCategoryId: "stc_records",
     roleIds: ["role_records", "role_cashier"],
+    extraPermissions: [],
+    removedPermissions: [],
     branchScope: ["br_annex"],
-    status: "invited",
+    status: "active",
+    mustChangePassword: true,
     createdAt: "2026-10-18T12:00:00.000Z",
   },
+];
+
+export const seedStaffCategories: StaffCategory[] = [
+  {
+    id: "stc_doctor",
+    name: "Doctor",
+    specialties: [
+      "General practice",
+      "Internal medicine",
+      "Paediatrics",
+      "Obstetrics & gynaecology",
+      "General surgery",
+    ],
+    defaultRoleIds: [],
+  },
+  {
+    id: "stc_nurse",
+    name: "Nurse",
+    specialties: ["General nursing", "Midwifery", "Theatre", "Paediatric nursing"],
+    defaultRoleIds: [],
+  },
+  { id: "stc_records", name: "Records & front desk", specialties: [], defaultRoleIds: ["role_records"] },
+  { id: "stc_cash", name: "Cashier & accounts", specialties: [], defaultRoleIds: ["role_cashier"] },
+  { id: "stc_admin", name: "Administration", specialties: [], defaultRoleIds: [] },
 ];
 
 // A newly onboarded hospital: entitled modules start switched off with default options.

@@ -59,7 +59,7 @@ export default function AuditLogPage() {
 }
 
 function AuditLog({ entries }: { entries: AuditEntry[] }) {
-  const { branches, users, roles, forms, exportedAudit, notify } = useStore();
+  const { branches, users, roles, forms, patients, exportedAudit, notify } = useStore();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -107,6 +107,10 @@ function AuditLog({ entries }: { entries: AuditEntry[] }) {
         return "/admin/numbering";
       case "settings":
         return "/admin/settings";
+      case "staff-category":
+        return "/admin/staff";
+      case "patient":
+        return patients.some((p) => p.id === t.id) ? `/desk/patients/${t.id}` : undefined;
     }
   };
 

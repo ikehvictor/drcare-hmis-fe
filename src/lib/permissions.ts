@@ -31,7 +31,7 @@ export const PERMISSION_CATALOGUE: PermissionGroup[] = [
       {
         key: "admin.users.manage",
         label: "Manage users",
-        description: "Invite staff, change their roles and suspend accounts.",
+        description: "Create staff accounts, set passwords, change what they can do and suspend accounts.",
         sensitive: true,
       },
       {
@@ -130,3 +130,20 @@ export const ALL_PERMISSIONS = PERMISSION_CATALOGUE.flatMap((g) => g.permissions
 export const ALL_PERMISSION_KEYS = ALL_PERMISSIONS.map((p) => p.key);
 
 export const permissionByKey = (key: string) => ALL_PERMISSIONS.find((p) => p.key === key);
+
+/** Functions a hospital names itself start with this, so they never clash with ones a module declares. */
+export const CUSTOM_PREFIX = "custom.";
+
+/** The catalogue plus the hospital's own functions, which no module checks yet. */
+export function permissionCatalogue(custom: { key: string; label: string; description: string }[]): PermissionGroup[] {
+  if (!custom.length) return PERMISSION_CATALOGUE;
+  return [
+    ...PERMISSION_CATALOGUE,
+    {
+      moduleId: "core",
+      module: "Your hospital's functions",
+      description: "Named by your hospital. No module checks these yet, so they record who is responsible.",
+      permissions: custom.map((c) => ({ key: c.key, label: c.label, description: c.description })),
+    },
+  ];
+}

@@ -62,6 +62,8 @@ export const AUDIT_CATEGORIES = [
   "Numbering",
   "Forms",
   "Settings",
+  "Patients",
+  "Staff",
   "Sign-in",
   "Support",
   "Audit",
@@ -75,7 +77,17 @@ export interface AuditChange {
 }
 
 export interface AuditTarget {
-  type: "branch" | "user" | "role" | "module" | "form" | "category" | "numbering" | "settings";
+  type:
+    | "branch"
+    | "user"
+    | "role"
+    | "module"
+    | "form"
+    | "category"
+    | "numbering"
+    | "settings"
+    | "patient"
+    | "staff-category";
   id: string;
   name: string;
 }
@@ -112,7 +124,27 @@ export interface Role {
   createdAt: string;
 }
 
-export type UserStatus = "invited" | "active" | "suspended";
+export type UserStatus = "active" | "suspended";
+
+/** A kind of staff, e.g. Doctor or Nurse, with its specialties. Hospitals make their own. */
+export interface StaffCategory {
+  id: string;
+  name: string;
+  /** Optional, e.g. Cardiology or Paediatrics for doctors. */
+  specialties: string[];
+  /** Roles suggested when creating an account in this category. */
+  defaultRoleIds: string[];
+}
+
+/**
+ * A function the hospital names itself, e.g. "Approve the nurses' duty roster". It can be put in roles and given to
+ * people like any other, but no module checks it yet, so it records responsibility rather than enforcing it.
+ */
+export interface CustomFunction {
+  key: string;
+  label: string;
+  description: string;
+}
 
 export interface User {
   id: string;
@@ -120,10 +152,19 @@ export interface User {
   email: string;
   phone: string;
   jobTitle: string;
+  staffCategoryId?: string;
+  specialty?: string;
   roleIds: string[];
+  /** Functions given to this person on top of their roles. */
+  extraPermissions: string[];
+  /** Functions their roles give that this person may not use. */
+  removedPermissions: string[];
   /** "all" or a list of branch ids the user may work in. */
   branchScope: "all" | string[];
   status: UserStatus;
+  /** The admin set their password; they must choose their own when they first sign in. */
+  mustChangePassword: boolean;
+  passwordSetAt?: string;
   lastActiveAt?: string;
   createdAt: string;
 }

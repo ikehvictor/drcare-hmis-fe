@@ -1,0 +1,477 @@
+<title>Dr. Care HMIS PRD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a product document with a sticky contents rail on wide screens; brand navy/teal from the Dr. Care logo. */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --fg: #0f1d2e;
+  --muted: #5b6b7d;
+  --line: #e2e8ef;
+  --navy: #10263d;
+  --accent: #23708f;
+  --accent-soft: #e7f2f6;
+  --cyan: #2f9fb1;
+  --ok: #0f8a5f;
+  --ok-soft: #e5f5ee;
+  --warn: #b26b00;
+  --warn-soft: #fdf3e1;
+  --plan: #5b6b7d;
+  --plan-soft: #eef1f5;
+  --display: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1622; --surface: #12202f; --fg: #e6edf4; --muted: #93a4b6; --line: #22354a;
+    --navy: #0a1520; --accent: #5fb4d0; --accent-soft: #15344a; --cyan: #70cfdd;
+    --ok: #4cc79a; --ok-soft: #12352a; --warn: #f0b04f; --warn-soft: #3a2a10; --plan: #a3b2c2; --plan-soft: #1c2b3b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1622; --surface: #12202f; --fg: #e6edf4; --muted: #93a4b6; --line: #22354a;
+  --navy: #0a1520; --accent: #5fb4d0; --accent-soft: #15344a; --cyan: #70cfdd;
+  --ok: #4cc79a; --ok-soft: #12352a; --warn: #f0b04f; --warn-soft: #3a2a10; --plan: #a3b2c2; --plan-soft: #1c2b3b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.65 var(--body); }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.masthead { background: var(--navy); color: #fff; padding-block: 40px 32px; padding-inline: 16px; }
+.masthead .inner, .wrap { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font: 600 12px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: #70cfdd; }
+.masthead h1 { font: 700 clamp(28px, 5vw, 42px)/1.1 var(--display); margin: 10px 0 8px; text-wrap: balance; }
+.masthead p { margin: 0; color: rgba(255,255,255,.75); max-width: 62ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; font-size: 13px; color: rgba(255,255,255,.7); }
+.meta b { color: #fff; font-weight: 600; }
+.meta code { font-family: var(--mono); color: #70cfdd; }
+
+.wrap { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; padding-block: 32px 64px; padding-inline: 16px; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; font-size: 13px; }
+nav.toc .label { font: 600 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav.toc a:hover { background: var(--accent-soft); color: var(--fg); }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } nav.toc { position: static; } nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+
+main { min-width: 0; display: grid; gap: 48px; }
+section > h2 { font: 600 24px/1.25 var(--display); margin: 0 0 6px; text-wrap: balance; }
+section > .lede { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+h3 { font: 600 17px/1.3 var(--display); margin: 26px 0 8px; }
+p, li { max-width: 72ch; }
+ul.reqs { padding-left: 20px; margin: 8px 0; display: grid; gap: 4px; }
+.num { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 11px/1 var(--body); letter-spacing: .04em; padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.built { background: var(--ok-soft); color: var(--ok); }
+.next { background: var(--warn-soft); color: var(--warn); }
+.planned { background: var(--plan-soft); color: var(--plan); }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--body); color: var(--muted); letter-spacing: .03em; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; }
+
+.changelog { display: grid; gap: 0; }
+.change { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.change:last-child { border-bottom: 0; }
+.change .when { font-size: 13px; color: var(--muted); }
+.change .when code { display: block; font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.change h4 { margin: 0 0 4px; font: 600 15px var(--body); }
+.change ul { margin: 4px 0 0; padding-left: 18px; }
+@media (max-width: 560px) { .change { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+.area { border-top: 1px solid var(--line); padding-top: 4px; }
+.area-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.area-head h3 { margin: 22px 0 8px; }
+.area-head .pill { margin-top: 14px; }
+.where { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; max-width: 72ch; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.grid2 .panel h4 { margin: 0 0 4px; font: 600 15px var(--display); }
+.grid2 .panel p { margin: 0; color: var(--muted); font-size: 14px; }
+code { font-family: var(--mono); font-size: .9em; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="eyebrow">Product requirements document</div>
+    <h1>Dr. Care HMIS</h1>
+    <p>One hospital management platform that every hospital shapes to its own way of working: its own branches, staff, forms, patient numbers and patient journey, without code changes.</p>
+    <div class="meta">
+      <span>Last updated <b>21 Oct 2026</b></span>
+      <span>Current stage <b>7 of the build</b> · <code>bb08a58</code></span>
+      <span>Status <b>Front end with demo data; no backend yet</b></span>
+      <span>Owner <b>Dr. Care product team</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <div class="label">Contents</div>
+    <ol>
+      <li><a href="#changes">What's new</a></li>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#users">Who it's for</a></li>
+      <li><a href="#principles">Principles</a></li>
+      <li><a href="#status">Scope &amp; status</a></li>
+      <li><a href="#admin">Hospital admin</a></li>
+      <li><a href="#desk">Front desk</a></li>
+      <li><a href="#cashpoint">Next: Cash Point</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li><a href="#nfr">Quality &amp; security</a></li>
+      <li><a href="#build">How it's built</a></li>
+      <li><a href="#decisions">Open decisions</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="changes" aria-labelledby="changes-h">
+      <h2 id="changes-h">What's new</h2>
+      <p class="lede">Each build stage is reviewed in the browser before it's committed. Newest first.</p>
+      <div class="panel changelog">
+        <div class="change">
+          <div class="when">21 Oct 2026<code>bb08a58</code></div>
+          <div>
+            <h4>Stage 7 · Staff accounts and flexible access</h4>
+            <ul>
+              <li>Admins create staff accounts directly and set the first password, instead of sending invitations.</li>
+              <li>New staff categories (Doctor, Nurse, Records, Cashier…) with specialties and suggested roles.</li>
+              <li>Hospitals can name their own functions, put them in roles and give them to people.</li>
+              <li>Any single function can be given to or taken from one person, on top of their roles.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="change">
+          <div class="when">21 Oct 2026<code>9416ac4</code></div>
+          <div>
+            <h4>Stage 6 · Front desk: register and find patients</h4>
+            <ul>
+              <li>A separate front-desk area for records clerks.</li>
+              <li>Registration uses the admin's category forms and patient-number format, with a duplicate check.</li>
+              <li>Search by number, name, phone or old card number; each registration is audited.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="change">
+          <div class="when">Earlier<code>94947ac → 964234a</code></div>
+          <div>
+            <h4>Stages 1–5 · Hospital admin foundation</h4>
+            <ul>
+              <li>Admin shell and overview; branches and service points.</li>
+              <li>Users, roles and permissions; modules and patient numbering.</li>
+              <li>Registration forms, patient categories and hospital settings; the audit log.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="overview" aria-labelledby="overview-h">
+      <h2 id="overview-h">Overview</h2>
+      <p class="lede">The problem, the idea, and what success looks like.</p>
+      <h3>Problem</h3>
+      <p>Hospitals in our market run very differently. A small clinic sends patients from Records straight to the Cashier and the doctor; a larger hospital adds reception, triage and HMO patients who skip the cashier. Each has its own paper card numbers and registration forms. Off-the-shelf systems force one way of working, and custom builds are slow and expensive to change.</p>
+      <h3>Idea</h3>
+      <p><b>One core platform with plug-in modules.</b> Every hospital gets the same engine but switches modules on or off, shapes its own forms, numbering and patient journey, and runs its own administration. Dr. Care oversees all hospitals from a separate platform console.</p>
+      <h3>Success looks like</h3>
+      <ul class="reqs">
+        <li>Two very different hospitals register patients with their own forms and numbers on the same build, with no code change.</li>
+        <li>A hospital admin sets up branches, staff and access without calling Dr. Care.</li>
+        <li>A cashier runs a full shift and reconciles it, and the owner trusts the daily report.</li>
+        <li>Every sensitive change can be traced: who, what, when, where, before and after.</li>
+      </ul>
+    </section>
+
+    <section id="users" aria-labelledby="users-h">
+      <h2 id="users-h">Who it's for</h2>
+      <p class="lede">Four layers of authority. A person can only do something when every layer above allows it.</p>
+      <div class="grid2">
+        <div class="panel"><h4>Dr. Care platform team</h4><p>Onboards hospitals, decides which modules each may use and sets limits on branches and users. Support access is logged and visible to the hospital.</p></div>
+        <div class="panel"><h4>Hospital Super Admin</h4><p>Runs the hospital's own setup: branches, staff accounts, roles, modules, numbering, forms and settings.</p></div>
+        <div class="panel"><h4>Records clerk / front desk</h4><p>Finds returning patients and registers new ones at their branch.</p></div>
+        <div class="panel"><h4>Cashiers, nurses, doctors and others</h4><p>Work at service points with what their roles allow. Cash Point and clinical modules come in later stages.</p></div>
+      </div>
+      <div class="callout"><b>Rule of inheritance:</b> Dr. Care entitles → Hospital enables and configures → Branch overrides → Role permits → Person acts.</div>
+    </section>
+
+    <section id="principles" aria-labelledby="principles-h">
+      <h2 id="principles-h">Principles</h2>
+      <p class="lede">Decisions every feature follows.</p>
+      <ul class="reqs">
+        <li><b>Configuration over code.</b> Forms, number formats, prices, payment rules and patient flow are data the admin edits.</li>
+        <li><b>Modules talk through events.</b> Records, Cash Point, Lab and others never reach into each other. Switching one off breaks nothing else.</li>
+        <li><b>Always at least one branch.</b> A single clinic is modelled as one branch, so opening a second site needs no rework.</li>
+        <li><b>Nothing clinical or financial is deleted.</b> Records are deactivated with a reason; money mistakes are fixed with reversing entries.</li>
+        <li><b>Everything sensitive is audited</b>, and sensitive actions can require a second approver.</li>
+        <li><b>Software never blocks care.</b> Every patient journey allows "treat first, pay later" with a reason that's logged.</li>
+      </ul>
+    </section>
+
+    <section id="status" aria-labelledby="status-h">
+      <h2 id="status-h">Scope &amp; status</h2>
+      <p class="lede"><span class="pill built">Built</span> means working in the front end with demo data and covered by automated tests. It still needs the backend before real use.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Area</th><th>Status</th><th>Stage</th><th>What's there</th></tr></thead>
+          <tbody>
+            <tr><td>Admin overview</td><td><span class="pill built">Built</span></td><td>1</td><td>Setup checklist, branches at a glance, recent activity</td></tr>
+            <tr><td>Branches &amp; service points</td><td><span class="pill built">Built</span></td><td>1</td><td>Add, edit, deactivate; plan limit; protected main branch</td></tr>
+            <tr><td>Staff accounts</td><td><span class="pill built">Built</span></td><td>2, 7</td><td>Create accounts with a password, suspend, reactivate, reset password</td></tr>
+            <tr><td>Staff categories</td><td><span class="pill built">Built</span></td><td>7</td><td>Categories, specialties, suggested roles</td></tr>
+            <tr><td>Roles &amp; functions</td><td><span class="pill built">Built</span></td><td>2, 7</td><td>Roles as groups of functions, hospital's own functions, per-person access</td></tr>
+            <tr><td>Modules</td><td><span class="pill built">Built</span></td><td>3</td><td>On/off with dependencies, options, request a module</td></tr>
+            <tr><td>Patient numbering</td><td><span class="pill built">Built</span></td><td>3</td><td>Number templates, counting scope, resets, starting number</td></tr>
+            <tr><td>Registration forms</td><td><span class="pill built">Built</span></td><td>4</td><td>Form builder, patient categories, live preview</td></tr>
+            <tr><td>Hospital settings</td><td><span class="pill built">Built</span></td><td>4</td><td>Profile and logo, security, approvals, branch overrides</td></tr>
+            <tr><td>Audit log</td><td><span class="pill built">Built</span></td><td>5</td><td>Filters, before/after changes, CSV export</td></tr>
+            <tr><td>Front desk: register &amp; find</td><td><span class="pill built">Built</span></td><td>6</td><td>Registration, numbers, duplicate check, search, record view</td></tr>
+            <tr><td>Edit, merge, deactivate patients; print cards</td><td><span class="pill next">Next</span></td><td>—</td><td>Rest of Medical Records phase</td></tr>
+            <tr><td>Cash Point</td><td><span class="pill next">Next</span></td><td>—</td><td>Bills, payments, receipts, tills, refunds</td></tr>
+            <tr><td>Patient flow &amp; queues</td><td><span class="pill planned">Planned</span></td><td>—</td><td>Journeys, queues, payment gates</td></tr>
+            <tr><td>Backend, real sign-in, Platform Console</td><td><span class="pill planned">Planned</span></td><td>—</td><td>Separate backend repository</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="admin" aria-labelledby="admin-h">
+      <h2 id="admin-h">Hospital admin</h2>
+      <p class="lede">Where the Hospital Super Admin sets the hospital up. Lives at <code>/admin</code>.</p>
+
+      <div class="area">
+        <div class="area-head"><h3>Branches &amp; service points</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A1</span>Add and edit branches with name, code, address and phone; one branch is the main branch.</li>
+          <li><span class="num">A2</span>Branches can't exceed the plan's limit; the main branch can't be deactivated.</li>
+          <li><span class="num">A3</span>Each branch has service points (Reception, Records, Cashier, Triage, Consultation, Lab, Pharmacy, Radiology) that can be opened or closed.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Staff accounts</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A4</span>The admin creates an account with name, email, phone, job title, staff category and specialty, roles and branch access. It works immediately; no invitation is sent.</li>
+          <li><span class="num">A5</span>The admin sets the first password. It must meet the hospital's minimum length, mix letters and numbers, and not contain the person's email name. By default the person must choose their own password at first sign-in.</li>
+          <li><span class="num">A6</span>Passwords are never stored in readable form or written to the audit log; the log only records that a password was set.</li>
+          <li><span class="num">A7</span>The admin can set a new password for someone else, suspend and reactivate accounts. Nobody can suspend themselves or change their own access.</li>
+          <li><span class="num">A8</span>Branch access is all branches or specific ones; a cashier limited to the annex can't work at main.</li>
+          <li><span class="num">A9</span>Suspended accounts don't count towards the plan's user limit.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Staff categories</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A10</span>The hospital defines its kinds of staff, such as Doctor, Nurse, Records &amp; front desk, Cashier &amp; accounts and Administration.</li>
+          <li><span class="num">A11</span>Each category can list specialties (for example Cardiology, Paediatrics, Midwifery) and suggest roles that are ticked when creating an account in it.</li>
+          <li><span class="num">A12</span>A category can't be deleted while anyone is in it.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Roles &amp; functions</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A13</span>A <b>function</b> is one thing a person may do, such as "Register new patients" or "Issue refunds". Modules declare the functions the system enforces.</li>
+          <li><span class="num">A14</span>A <b>role</b> is a named group of functions, such as Head Nurse or Cardiology Doctor. Admins create, copy, edit and delete roles; a role in use can't be deleted.</li>
+          <li><span class="num">A15</span>The Hospital Super Admin role always has every function and can't be changed, so a hospital can't lock itself out.</li>
+          <li><span class="num">A16</span>Hospitals can name their own functions, such as "Approve the nurses' duty roster". They work in roles and on people like any other, but are marked <i>not enforced yet</i> until a module supports them.</li>
+          <li><span class="num">A17</span>Per-person access: any function can be given to one person or taken away from them, without changing the role for anyone else. The page shows where each function comes from.</li>
+          <li><span class="num">A18</span>Functions of a switched-off module don't count.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Modules</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A19</span>The admin switches on or off the modules on the hospital's plan. Dependencies switch together (Cash Point needs Medical Records), with a warning first.</li>
+          <li><span class="num">A20</span>Each module has options. Medical Records: phone required, estimated age allowed, capture next of kin, duplicate check. Cash Point: payment methods, part payments, deposits, refund approval amount.</li>
+          <li><span class="num">A21</span>Modules not on the plan can be requested from Dr. Care.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Patient numbering</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A22</span>The hospital builds its format from tokens: <code>{PREFIX}</code>, <code>{BR}</code> branch, <code>{YYYY}</code>/<code>{YY}</code> year, <code>{MM}</code> month, <code>{CAT}</code> category, <code>{SEQ:n}</code> running number. Examples: <code>LKS/000123</code>, <code>LKA-26-04571</code>, <code>0123/26</code>.</li>
+          <li><span class="num">A23</span>Counting can be hospital-wide, per branch or per category, and can restart yearly or monthly. The format is rejected if it could repeat numbers.</li>
+          <li><span class="num">A24</span>A starting number lets a hospital continue from its paper records. Old card numbers can be kept and searched.</li>
+          <li><span class="num">A25</span>Changing a saved format asks first and shows numbers before and after.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Registration forms &amp; patient categories</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A26</span>Core fields every record needs (names, sex, date of birth, phone) can be reordered but not removed.</li>
+          <li><span class="num">A27</span>Admins add fields from a standard library (address, next of kin, blood group, NIN…) or invent custom fields of any type, arrange them in sections and mark them required.</li>
+          <li><span class="num">A28</span>Patient categories (General, Child, Antenatal, Corporate…) each use a form and have a code used in numbers. A form in use can't be deleted.</li>
+          <li><span class="num">A29</span>A live preview shows the form as the clerk will see it, with Medical Records options applied.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Settings</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A30</span>Hospital profile: name, short name, contact details, logo, date format.</li>
+          <li><span class="num">A31</span>Security: sign out after inactivity, quick PIN switch for shared computers, two-step sign-in, minimum password length.</li>
+          <li><span class="num">A32</span>Sensitive actions (merge patients, refunds, voids, discounts, user and role changes) can require approval by a chosen role.</li>
+          <li><span class="num">A33</span>A branch can override the sign-out time and PIN switch; otherwise it uses the hospital setting.</li>
+        </ul>
+      </div>
+
+      <div class="area">
+        <div class="area-head"><h3>Audit log</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">A34</span>Every change records who, what, when, where (branch), how (which computer) and the values before and after. Sensitive entries are flagged.</li>
+          <li><span class="num">A35</span>Entries can never be edited or removed. Filter by category, person, date, text or sensitive only.</li>
+          <li><span class="num">A36</span>Export to CSV; the export itself is logged. Text that could run as a spreadsheet formula is made safe.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="desk" aria-labelledby="desk-h">
+      <h2 id="desk-h">Front desk</h2>
+      <p class="lede">Where records clerks work. Lives at <code>/desk</code>, separate from the admin.</p>
+      <div class="area">
+        <div class="area-head"><h3>Access to the desk</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">D1</span>Only active staff whose access includes "Register new patients" can use the desk, and only at branches they may work at.</li>
+          <li><span class="num">D2</span>While Medical Records is switched off, the desk explains why and blocks registration and search. Registration also waits until a number format is saved and a patient category is in use.</li>
+        </ul>
+      </div>
+      <div class="area">
+        <div class="area-head"><h3>Register a patient</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">D3</span>The clerk picks a patient category, which loads that category's form with Medical Records options applied.</li>
+          <li><span class="num">D4</span>Required fields, phone numbers, emails and dates are checked. A patient who doesn't know their date of birth can give an estimated age, if allowed.</li>
+          <li><span class="num">D5</span>The patient number is issued from the admin's format and counting rules when the record is saved. Numbers never repeat, even if the admin later changes the format.</li>
+          <li><span class="num">D6</span>Duplicate check: same name, date of birth and phone (ignoring spacing, capitals and +234 vs 0) shows a possible match. The clerk opens the existing record or confirms a new patient; the override is logged.</li>
+          <li><span class="num">D7</span>Each registration writes a sensitive audit entry with the number, category, name, sex, date of birth, phone and branch. Other answers stay on the record only.</li>
+        </ul>
+      </div>
+      <div class="area">
+        <div class="area-head"><h3>Find a patient &amp; record view</h3><span class="pill built">Built</span></div>
+        <ul class="reqs">
+          <li><span class="num">D8</span>Search by patient number, name, phone, and old card number when the hospital keeps them. Exact number matches come first.</li>
+          <li><span class="num">D9</span>The record shows a summary (age, date of birth, phone, category, where and by whom registered) and every answer grouped as on the form.</li>
+        </ul>
+      </div>
+      <div class="area">
+        <div class="area-head"><h3>Still to do in Medical Records</h3><span class="pill next">Next</span></div>
+        <ul class="reqs">
+          <li><span class="num">D10</span>Edit patient details, with before and after in the audit log.</li>
+          <li><span class="num">D11</span>Merge duplicate patients, with approval when the hospital requires it.</li>
+          <li><span class="num">D12</span>Deactivate a record with a reason; records are never deleted.</li>
+          <li><span class="num">D13</span>Payer on the record: cash, HMO (scheme and enrollee ID), corporate, staff, family.</li>
+          <li><span class="num">D14</span>Print patient cards and labels with a configurable layout.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cashpoint" aria-labelledby="cash-h">
+      <h2 id="cash-h">Next: Cash Point</h2>
+      <p class="lede">Billing and payments. Not started; requirements from the architecture plan.</p>
+      <ul class="reqs">
+        <li><span class="num">C1</span>Service catalogue and price lists per payer (cash, HMO, corporate, staff) and per branch, with effective dates.</li>
+        <li><span class="num">C2</span>Any module can raise a charge; charges group into a bill per visit showing paid and outstanding.</li>
+        <li><span class="num">C3</span>Payments by cash, POS, transfer or deposit; part payments if allowed; numbered receipts, with reprints marked COPY.</li>
+        <li><span class="num">C4</span>Till sessions: the cashier opens with a float and closes with a count; the system shows over or short.</li>
+        <li><span class="num">C5</span>Refunds, voids, discounts and waivers never edit the original. They create reversing records and need approval above a set amount.</li>
+        <li><span class="num">C6</span>Reports from day one: collections by cashier, method, service and branch; outstanding bills; refunds and discounts; till over/short.</li>
+      </ul>
+    </section>
+
+    <section id="roadmap" aria-labelledby="roadmap-h">
+      <h2 id="roadmap-h">Roadmap</h2>
+      <p class="lede">Each phase is added as modules, without changing the ones before.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Phase</th><th>Delivers</th><th>Done when</th></tr></thead>
+          <tbody>
+            <tr><td>0 · Foundation</td><td>Hospitals and branches, staff and access, modules, settings, audit, numbering</td><td>A hospital admin can set up staff, roles and modules unaided. <span class="pill built">Front end built</span></td></tr>
+            <tr><td>1 · Medical Records</td><td>Forms, numbers, search, duplicates, merge, payers, cards</td><td>Two very different hospitals register patients their own way. <span class="pill next">Partly built</span></td></tr>
+            <tr><td>2 · Cash Point</td><td>Catalogue, prices, bills, payments, receipts, tills, refunds, reports</td><td>A cashier runs and reconciles a full shift. <span class="pill next">Next</span></td></tr>
+            <tr><td>3 · Patient flow</td><td>Queues, journey templates, payment gates, queue screens</td><td>Small and mid-size hospitals run different journeys on one build. <span class="pill planned">Planned</span></td></tr>
+            <tr><td>Later</td><td>Consultation/EMR, nursing, lab, radiology, pharmacy, wards, HMO claims, accounting, patient portal, offline mode</td><td>Each added as a module. <span class="pill planned">Planned</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="nfr" aria-labelledby="nfr-h">
+      <h2 id="nfr-h">Quality &amp; security</h2>
+      <p class="lede">Requirements that apply to every feature.</p>
+      <ul class="reqs">
+        <li><span class="num">Q1</span>Each hospital's data is isolated from every other's, enforced in the database.</li>
+        <li><span class="num">Q2</span>Strong passwords, optional two-step sign-in, automatic sign-out on shared front-desk computers.</li>
+        <li><span class="num">Q3</span>Patient data encrypted in transit and at rest; compliance with local privacy law such as Nigeria's NDPA.</li>
+        <li><span class="num">Q4</span>Money and audit records are append-only; amounts use exact decimal arithmetic with a currency.</li>
+        <li><span class="num">Q5</span>Works on phones and tablets as well as desktops, with keyboard and screen-reader support.</li>
+        <li><span class="num">Q6</span>Copes with unreliable internet: clear offline messages and retries first, full offline mode later.</li>
+        <li><span class="num">Q7</span>Data shapes ready for ICD-10 diagnoses and HL7 FHIR export.</li>
+      </ul>
+    </section>
+
+    <section id="build" aria-labelledby="build-h">
+      <h2 id="build-h">How it's built</h2>
+      <p class="lede">For engineering colleagues.</p>
+      <ul class="reqs">
+        <li><b>Front end</b> (this repository, <code>drcare-hmis-fe</code>): Next.js 16 and TypeScript, Tailwind CSS with Dr. Care brand colours.</li>
+        <li><b>Demo data</b> is kept in the browser so reviewers can click through every flow. "Reset demo data" in the account menu starts over.</li>
+        <li><b>Automated tests:</b> 156 browser tests cover every flow above, on desktop and phone sizes.</li>
+        <li><b>Planned backend</b> (separate repository): a modular monolith, likely NestJS with PostgreSQL, Redis for jobs and live queues, and object storage for documents.</li>
+        <li>The full technical blueprint is in <code>docs/ARCHITECTURE.md</code> in the repository.</li>
+      </ul>
+    </section>
+
+    <section id="decisions" aria-labelledby="decisions-h">
+      <h2 id="decisions-h">Open decisions</h2>
+      <p class="lede">Questions for the team before the backend is built.</p>
+      <ul class="reqs">
+        <li>Which countries and currencies at launch? This affects tax, privacy law, ID formats and where data is hosted.</li>
+        <li>How early do Records and Cash Point need to work with no internet?</li>
+        <li>Pricing model: per module, per branch or per user?</li>
+        <li>Hosting: our cloud only, or also on-premise for large or government hospitals?</li>
+        <li>Who sets up new hospitals: our team, the hospital admin, or a guided setup wizard?</li>
+        <li>Confirm the backend stack (NestJS and PostgreSQL) or an existing team preference.</li>
+        <li>Should the hospital's own functions ever be enforced, for example by linking them to a module's screen?</li>
+      </ul>
+    </section>
+
+    <section id="glossary" aria-labelledby="glossary-h">
+      <h2 id="glossary-h">Glossary</h2>
+      <div class="tablewrap">
+        <table>
+          <tbody>
+            <tr><td>Tenant</td><td>One hospital or organisation using Dr. Care; its data is isolated from others.</td></tr>
+            <tr><td>Branch</td><td>A physical site of a hospital. Every hospital has at least one.</td></tr>
+            <tr><td>Service point</td><td>A desk or room where patients are attended to: Records, Cashier, OPD room…</td></tr>
+            <tr><td>Module</td><td>A plug-in feature area such as Medical Records or Cash Point.</td></tr>
+            <tr><td>Function</td><td>One thing a person may do, like "Issue refunds". Also called a permission.</td></tr>
+            <tr><td>Role</td><td>A named group of functions given to staff, like "Records Officer".</td></tr>
+            <tr><td>Staff category</td><td>A kind of staff, like Doctor or Nurse, with optional specialties.</td></tr>
+            <tr><td>Patient category</td><td>A kind of patient, like Antenatal, which decides the registration form.</td></tr>
+            <tr><td>Visit</td><td>One trip a patient makes to the hospital.</td></tr>
+            <tr><td>Audit log</td><td>The permanent record of who changed what, when and where.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>

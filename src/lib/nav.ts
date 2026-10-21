@@ -5,8 +5,11 @@ import {
   Hash,
   LayoutDashboard,
   ScrollText,
+  Search,
   Settings,
   ShieldCheck,
+  Stethoscope,
+  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -15,6 +18,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Other paths that belong under this item, e.g. a record opened from a list. */
+  also?: string[];
 }
 
 export interface NavGroup {
@@ -35,6 +40,7 @@ export const NAV: NavGroup[] = [
     label: "People & access",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Staff categories", href: "/admin/staff", icon: Stethoscope },
       { label: "Roles & permissions", href: "/admin/roles", icon: ShieldCheck },
     ],
   },
@@ -54,3 +60,14 @@ export const NAV: NavGroup[] = [
 ];
 
 export const ALL_NAV_ITEMS = NAV.flatMap((g) => g.items);
+
+// The records clerk's front desk (docs/ARCHITECTURE.md §5): find a patient first, register only if they're new.
+export const DESK_NAV: NavGroup[] = [
+  {
+    label: "Medical Records",
+    items: [
+      { label: "Find a patient", href: "/desk", icon: Search, also: ["/desk/patients"] },
+      { label: "Register a patient", href: "/desk/register", icon: UserPlus },
+    ],
+  },
+];
