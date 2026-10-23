@@ -9,7 +9,6 @@ const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Dr. Care HMIS",
   description: "Hospital management for every hospital, shaped by its own admin.",
-  icons: { icon: "/brand/icon-192.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
