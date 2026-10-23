@@ -86,7 +86,7 @@ function Sidebar({ area, navLabel, nav, home, footer, onNavigate }: SidebarProps
   return (
     <div className="flex h-full flex-col bg-navy text-white">
       <div className="flex items-center gap-3 px-5 pt-5 pb-4">
-        <Image src="/brand/logo.png" alt="" width={40} height={32} priority />
+        <Image src="/brand/logo.png" alt="" width={40} height={34} priority />
         <div className="leading-tight">
           <div className="font-display text-lg font-semibold">Dr. Care</div>
           <div className="text-[11px] tracking-wide text-cyan/90 uppercase">{area}</div>

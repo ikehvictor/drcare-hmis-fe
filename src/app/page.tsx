@@ -7,7 +7,7 @@ export default function SignInPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <section className="relative hidden overflow-hidden bg-navy p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
-          <Image src="/brand/logo.png" alt="" width={48} height={39} />
+          <Image src="/brand/logo.png" alt="" width={48} height={41} />
           <span className="font-display text-xl font-semibold">Dr. Care</span>
         </div>
         <div className="max-w-md">
@@ -25,7 +25,7 @@ export default function SignInPage() {
       <section className="flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <Image src="/brand/logo.png" alt="" width={40} height={32} />
+            <Image src="/brand/logo.png" alt="" width={40} height={34} />
             <span className="font-display text-xl font-semibold">Dr. Care</span>
           </div>
           <h1 className="font-display text-2xl font-semibold">Sign in to your hospital</h1>
